@@ -613,6 +613,14 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlycXRuY2Rjdmlqb2JyaGJ5aXV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzODc3ODAsImV4cCI6MjEwMTk2Mzc4MH0.5JcJzzewjjCbJ4rzkyjhexl7yBu55AmjcCNh37sHUt8';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // API BACKEND CONFIGURATION
+        // Auto-switches: same file works unchanged on your local NAS/PowerShell setup
+        // AND once deployed behind mas-miami.com — no manual toggling needed.
+        // If you land on a different subdomain scheme, this is the only line to change.
+        const API_BASE = (['localhost', '127.0.0.1'].includes(window.location.hostname))
+            ? 'http://localhost:5000'
+            : 'https://api.mas-miami.com';
+
         let currentUser = null;
         let authMode = 'login'; // 'login', 'register', 'forgot'
 
@@ -1046,7 +1054,7 @@
 
         async function loadAvailability() {
             try {
-                const response = await fetch('http://localhost:5000/api/available');
+                const response = await fetch(`${API_BASE}/api/available`);
                 const data = await response.json();
                 availabilityData = data.success ? data.availability : {};
                 
@@ -1067,6 +1075,7 @@
                 }
             } catch (error) {
                 console.error('API Error:', error);
+                setStatus('Could not load topics. If the backend just deployed or has been idle, it may be waking up — reload in ~30s.', 'error');
             }
             updateDifficultyOptions();
         }
@@ -1141,7 +1150,7 @@
                     difficulty: selectedDifficulty,
                     exclude: excludeStr
                 });
-                const response = await fetch(`http://localhost:5000/api/generate?${params.toString()}`);
+                const response = await fetch(`${API_BASE}/api/generate?${params.toString()}`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -1254,7 +1263,7 @@
                     }
                 }
             } catch (error) {
-                setStatus('Could not reach the Flask API. Make sure app.py is running.', 'error');
+                setStatus('Could not reach the API. If this is local dev, make sure app.py is running. If this just deployed, the free-tier backend may be waking up — try again in a few seconds.', 'error');
             } finally {
                 generateBtn.disabled = false;
             }

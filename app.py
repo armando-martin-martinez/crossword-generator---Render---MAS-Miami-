@@ -1,9 +1,15 @@
+import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import generator
 
 app = Flask(__name__)
-CORS(app)
+
+# In production (Render), set ALLOWED_ORIGINS to your real frontend domain(s), comma-separated.
+# Example: ALLOWED_ORIGINS=https://mas-miami.com,https://www.mas-miami.com
+# Left unset (defaults to "*"), CORS stays wide open — fine for local dev, not for production.
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+CORS(app, origins=allowed_origins)
 
 @app.route('/api/generate', methods=['GET'])
 def generate_api():
@@ -51,5 +57,8 @@ def available_api():
         return jsonify({"success": False, "message": "DB Error"}), 500
 
 if __name__ == '__main__':
-    print("🌍 API Server running. Listening on http://localhost:5000")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # FLASK_DEBUG must be explicitly set to "true" to enable the interactive debugger.
+    # Safe by default even if this file is ever run directly on a reachable machine.
+    debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    print(f"🌍 API Server running. Listening on http://localhost:5000 (debug={debug_mode})")
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
