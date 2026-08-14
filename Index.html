@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Crossword</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0B1020;
+            --panel: #141B2D;
+            --board: #1C263D;
+            --border: #303C58;
+            --text: #F3F5F8;
+            --muted: #98A4BA;
+            --amber: #F2B544;
+            --cyan: #38D2D4;
+            --success: #39C98A;
+            --error: #E97968;
+
+            --bg-line: rgba(243, 245, 248, 0.022);
+            --surface: var(--panel);
+            --surface-2: #1B233A;
+            --surface-3: var(--board);
+            --ink: var(--text);
+            --ink-dim: var(--muted);
+            --ink-faint: #606F8A;
+            --paper: #F4F1E8;
+            --paper-ink: #11141C;
+            --accent: var(--cyan);
+            --accent-strong: #27B9BB;
+            --accent-soft: rgba(56, 210, 212, 0.12);
+            --gold: var(--amber);
+            --gold-soft: rgba(242, 181, 68, 0.14);
+            --success-soft: rgba(57, 201, 138, 0.12);
+            --error-soft: rgba(233, 121, 104, 0.12);
+            --warning: var(--amber);
+            --warning-soft: rgba(242, 181, 68, 0.12);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --shadow-panel: 0 20px 50px -12px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3);
+            --font-display: 'Fraunces', Georgia, serif;
+            --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        .hidden { display: none !important; }
+
+        body {
+            background-color: var(--bg);
+            background-image: radial-gradient(circle at top center, rgba(56, 210, 212, 0.04) 0%, transparent 60%), linear-gradient(var(--bg-line) 1px, transparent 1px), linear-gradient(90deg, var(--bg-line) 1px, transparent 1px);
+            background-size: 100% 100%, 42px 42px;
+            color: var(--ink);
+            font-family: var(--font-body);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .page-card { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-panel); }
+
+        .masthead-title { font-family: var(--font-display); font-weight: 500; font-size: clamp(1.85rem, 4.5vw, 2.65rem); color: var(--ink); letter-spacing: -0.015em; line-height: 1.15; }
+        .masthead-title .accent-word { color: var(--accent); }
+        .masthead-subtitle { font-family: var(--font-body); font-size: 0.95rem; color: var(--ink-dim); font-weight: 400; opacity: 0.95; letter-spacing: -0.01em; margin-top: -0.25rem; }
+        .masthead-rule { display: flex; align-items: center; gap: 0.6rem; width: 100%; max-width: 180px; margin-top: 0.25rem; }
+        .masthead-rule span:not(.rule-dot) { flex: 1; height: 1px; background: var(--border); }
+        .rule-dot { width: 5px; height: 5px; background: var(--accent); border-radius: 1px; transform: rotate(45deg); flex: 0 0 auto; }
+
+        .toolbar-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 12px 40px -15px rgba(0,0,0,0.5);
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 1.5rem;
+        }
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1 1 200px;
+            min-width: 160px;
+        }
+        .field-label {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--amber);
+            font-weight: 600;
+        }
+        .field-hint {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            color: var(--muted);
+            min-height: 1.2em;
+            opacity: 0.85;
+            margin-top: 0.1rem;
+        }
+        select.control, input.control {
+            appearance: none;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 1rem;
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            font-weight: 500;
+            outline: none;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
+            width: 100%;
+        }
+        select.control {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2398A4BA'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            padding-right: 2.2rem;
+            cursor: pointer;
+        }
+        select.control:hover, input.control:hover { border-color: var(--cyan); }
+        select.control:focus-visible, input.control:focus-visible { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(56, 210, 212, 0.18); }
+
+        button.btn-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            background: var(--cyan);
+            color: #0B1020;
+            font-weight: 600;
+            font-size: 0.9rem;
+            height: 46px;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 0 1.75rem;
+            cursor: pointer;
+            white-space: nowrap;
+            flex: 0 0 auto;
+            box-shadow: 0 8px 20px -8px rgba(56, 210, 212, 0.4);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+        }
+        button.btn-primary:hover:not(:disabled) {
+            background: #2cb8ba;
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px -6px rgba(56, 210, 212, 0.5);
+        }
+        button.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
+        button.btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: transparent;
+            border: 1.5px solid var(--border);
+            color: var(--ink);
+            border-radius: 999px;
+            padding: 0.55rem 1.25rem;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+        }
+        button.btn-secondary:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            background-color: rgba(56, 186, 188, 0.04);
+        }
+
+        button.btn-danger {
+            border-color: rgba(233, 121, 104, 0.4);
+            color: var(--error);
+        }
+        button.btn-danger:hover {
+            border-color: var(--error);
+            color: var(--error);
+            background-color: var(--error-soft);
+        }
+
+        .status-banner {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            padding: 0.7rem 1.25rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .status-info { background: var(--accent-soft); color: var(--accent); border-color: rgba(56, 210, 212, 0.2); }
+        .status-success { background: var(--success-soft); color: var(--success); border-color: rgba(57, 201, 138, 0.2); }
+        .status-warning { background: var(--warning-soft); color: var(--warning); border-color: rgba(242, 181, 68, 0.2); }
+        .status-error { background: var(--error-soft); color: var(--error); border-color: rgba(233, 121, 104, 0.2); }
+
+        /* ---------- Game HUD (Time / Score / Progress / Direction / Penalty) ---------- */
+        .hud-card {
+            display: flex;
+            align-items: stretch;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 8px 20px -10px rgba(0,0,0,0.5);
+            overflow-x: auto;
+        }
+        .hud-stat {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.15rem;
+            padding: 0.5rem 1rem;
+            min-width: 64px;
+            position: relative;
+        }
+        .hud-label {
+            font-family: var(--font-mono);
+            font-size: 0.58rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+        .hud-value {
+            font-family: var(--font-mono);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .hud-value-time { color: var(--cyan); }
+        .hud-value-accent { color: var(--amber); }
+        .hud-value-danger { color: var(--error); }
+        .hud-value-sm { font-size: 0.85rem; font-weight: 600; }
+        .hud-divider { width: 1px; background: var(--border); flex: 0 0 auto; }
+        .hud-progress-track {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 2px;
+            background: var(--border);
+        }
+        .hud-progress-fill {
+            height: 100%;
+            background: var(--cyan);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        @keyframes hudFlash {
+            0% { color: var(--error); transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .hud-value-flash { animation: hudFlash 0.4s ease; }
+        @media (prefers-reduced-motion: reduce) {
+            .hud-value-flash { animation: none; }
+        }
+
+        /* ---------- On-grid direction arrow ---------- */
+        .direction-arrow {
+            position: absolute;
+            top: 1px;
+            right: 2px;
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(17, 20, 28, 0.7);
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        /* ---------- Action toolbar clusters ---------- */
+        .toolbar-divider {
+            width: 1px;
+            height: 26px;
+            background: var(--border);
+            align-self: center;
+        }
+        .btn-cluster { display: inline-flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+        button.btn-secondary.btn-verify { border-color: rgba(56, 210, 212, 0.35); color: var(--cyan); }
+        button.btn-secondary.btn-verify:hover { background: rgba(56, 210, 212, 0.08); border-color: var(--cyan); }
+        button.btn-secondary.btn-assist { border-color: rgba(242, 181, 68, 0.35); color: var(--amber); }
+        button.btn-secondary.btn-assist:hover { background: rgba(242, 181, 68, 0.08); border-color: var(--amber); }
+
+        #grid-container {
+            background: var(--board);
+            padding: 0.75rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            box-shadow: inset 0 4px 20px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            width: fit-content;
+            max-width: 100%;
+        }
+        
+        .cell-block { background: var(--board); }
+        .cell-wrapper { border: 1px solid transparent; transition: all 0.15s ease; }
+        
+        .cell-default { background: var(--paper); color: var(--paper-ink); border-color: rgba(17, 20, 28, 0.12); }
+        .cell-correct { background: #C4F4D5; color: #0A3C20; border-color: rgba(10, 60, 32, 0.2); }
+        .cell-incorrect { background: #FAD1D1; color: #5C1414; border-color: rgba(92, 20, 20, 0.2); }
+        
+        .highlight-word { background: #FDF5D3 !important; box-shadow: inset 0 0 0 2px var(--amber); }
+        .cell-correct.highlight-word { background: #A7EDB8 !important; box-shadow: inset 0 0 0 2px var(--amber); }
+        .cell-incorrect.highlight-word { background: #F6BDBD !important; box-shadow: inset 0 0 0 2px var(--amber); }
+        
+        .crossword-cell:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--cyan); background: rgba(56, 210, 212, 0.08); }
+        .cell-number { color: rgba(17, 20, 28, 0.45); }
+
+        .clues-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 12px 40px -15px rgba(0,0,0,0.5);
+            max-height: 400px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .clue-heading {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--cyan);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+        .clue-item {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+            padding: 0.6rem 0.75rem;
+            border-radius: 8px;
+            border-left: 3px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .clue-item:hover { background: rgba(243, 245, 248, 0.025); }
+        .clue-item.active-clue { background: rgba(56, 210, 212, 0.06); border-left-color: var(--cyan); }
+        .clue-item.active-clue .clue-text { color: var(--text); font-weight: 500; }
+        .clue-number {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #0B1020;
+            background: var(--amber);
+            min-width: 1.55rem;
+            height: 1.55rem;
+            display: inline-flex;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            flex-shrink: 0;
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        .clue-item:hover .clue-number { transform: scale(1.05); }
+        .clue-text {
+            font-size: 0.92rem;
+            color: var(--muted);
+            line-height: 1.5;
+            padding-top: 0.05rem;
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+        .clue-item:hover .clue-text { color: var(--text); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-10 px-4 relative">
+
+    <div class="max-w-6xl w-full page-card p-6 sm:p-8 rounded-2xl flex flex-col items-center">
+
+        <!-- User / Auth Header Bar -->
+        <div class="w-full flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-[var(--border)] font-mono text-xs">
+            <div id="user-status-display" class="text-[var(--muted)]">
+                Guest Mode (Temporary Session)
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="auth-btn" onclick="openAuthModal()" class="btn-secondary py-1 px-3 text-xs">🔑 Login / Register</button>
+                <button id="stats-btn" onclick="openStatsModal()" class="btn-secondary py-1 px-3 text-xs hidden">📊 Stats</button>
+                <button id="pause-btn" onclick="pauseGame()" class="btn-secondary py-1 px-3 text-xs hidden text-[var(--amber)] border-[rgba(242,181,68,0.3)]">⏸️ Pause</button>
+                <button id="logout-btn" onclick="logoutUser()" class="btn-secondary py-1 px-3 text-xs hidden btn-danger">Logout</button>
+            </div>
+        </div>
+
+        <header class="flex flex-col items-center text-center mb-10 gap-3">
+            <h1 class="masthead-title">Interactive <span class="accent-word">Crossword</span></h1>
+            <p class="masthead-subtitle">Create a puzzle. Solve it. Learn.</p>
+            <div class="masthead-rule"><span></span><span class="rule-dot"></span><span></span></div>
+        </header>
+
+        <div class="toolbar-panel w-full max-w-3xl p-5 sm:p-6 mb-6">
+            <div class="toolbar">
+                <div class="field-group">
+                    <label for="topic-select" class="field-label">Topic</label>
+                    <select id="topic-select" onchange="updateDifficultyOptions()" class="control"></select>
+                </div>
+
+                <div class="field-group">
+                    <label for="difficulty-select" class="field-label">Difficulty</label>
+                    <select id="difficulty-select" onchange="onDifficultyChange()" class="control">
+                        <option value="easy">Easy (20 words)</option>
+                        <option value="medium" selected>Medium (30 words)</option>
+                        <option value="hard">Hard (40 words)</option>
+                    </select>
+                    <p id="difficulty-hint" class="field-hint"></p>
+                </div>
+
+                <button id="generate-btn" onclick="cargarCrucigrama()" class="btn-primary">
+                    <span aria-hidden="true">&#8635;</span> Generate Crossword
+                </button>
+            </div>
+        </div>
+
+        <!-- Action / Helper & Evaluation Toolbar -->
+        <div class="mb-6 w-full max-w-3xl flex flex-wrap items-center justify-center gap-3">
+            <div class="btn-cluster" role="group" aria-label="Verify your answers">
+                <button onclick="checkWord()" class="btn-secondary btn-verify">
+                    ✔️ Check Word
+                </button>
+                <button onclick="checkAnswers()" class="btn-secondary btn-verify">
+                    <span aria-hidden="true">&#10003;</span> Check All
+                </button>
+            </div>
+            <span class="toolbar-divider hidden sm:inline-block" aria-hidden="true"></span>
+            <div class="btn-cluster" role="group" aria-label="Get a hint">
+                <button onclick="revealLetter()" class="btn-secondary btn-assist">
+                    💡 Reveal Letter
+                </button>
+                <button onclick="revealWord()" class="btn-secondary btn-assist">
+                    🔍 Reveal Word
+                </button>
+            </div>
+            <span class="toolbar-divider hidden sm:inline-block" aria-hidden="true"></span>
+            <button onclick="revealAll()" class="btn-secondary btn-danger">
+                🏳️ Give Up / Reveal All
+            </button>
+        </div>
+
+        <!-- Status & Game HUD Bar -->
+        <div class="w-full max-w-3xl flex flex-wrap items-stretch justify-between gap-4 mb-6">
+            <div id="status" class="status-banner status-info flex-1" role="status" aria-live="polite">Welcome! Select a topic and hit generate.</div>
+            <div id="game-hud" class="hud-card hidden">
+                <div class="hud-stat">
+                    <span class="hud-label">Time</span>
+                    <span id="timer-display" class="hud-value hud-value-time">00:00</span>
+                </div>
+                <div class="hud-divider"></div>
+                <div class="hud-stat">
+                    <span class="hud-label">Penalty</span>
+                    <span id="time-penalty-display" class="hud-value hud-value-danger hud-value-sm">+0s</span>
+                </div>
+                <div class="hud-divider"></div>
+                <div class="hud-stat">
+                    <span class="hud-label">Score</span>
+                    <span id="score-display" class="hud-value hud-value-accent">2000</span>
+                </div>
+                <div class="hud-divider"></div>
+                <div class="hud-stat">
+                    <span class="hud-label">Progress</span>
+                    <span id="progress-display" class="hud-value">0%</span>
+                    <div class="hud-progress-track"><div id="progress-fill" class="hud-progress-fill"></div></div>
+                </div>
+                <div class="hud-divider"></div>
+                <div class="hud-stat">
+                    <span class="hud-label">Direction</span>
+                    <span id="direction-value" class="hud-value hud-value-sm">→ Across</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vertical Layout Container -->
+        <div class="flex flex-col gap-6 items-center w-full mb-8">
+            <div class="w-full flex justify-center mb-2">
+                <div id="grid-container" class="w-full flex items-center justify-center text-ink-dim py-16 border border-border rounded-xl bg-surface-3">
+                    <div class="text-center">
+                        <div class="text-4xl mb-3">🧩</div>
+                        <p class="text-text font-medium text-lg">Your crossword will appear here.</p>
+                        <p class="text-sm mt-2 text-muted font-mono">Tip: Press [Space] to toggle direction. Left-click a clue to jump to it, right-click to clear it.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full max-w-4xl">
+                <div class="clues-panel w-full p-5 sm:p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h2 class="clue-heading">&#8594; Across</h2>
+                            <ul id="clues-across" class="space-y-2"></ul>
+                        </div>
+                        <div>
+                            <h2 class="clue-heading">&#8595; Down</h2>
+                            <ul id="clues-down" class="space-y-2"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="w-full text-center mt-6 pt-4 border-t border-[var(--border)] flex flex-col sm:flex-row items-center justify-between text-xs text-[var(--muted)] font-mono">
+            <span>MAS-MIAMI</span>
+            <span>Crafted by AMM</span>
+        </footer>
+    </div>
+
+    <!-- Dictionary Definition Modal -->
+    <div id="def-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-[var(--panel)] border border-[var(--border)] rounded-xl max-w-sm w-full p-6 shadow-2xl relative">
+            <button onclick="closeModal()" class="absolute top-3 right-3 text-slate-400 hover:text-[var(--cyan)] font-bold text-lg transition-colors">&times;</button>
+            <h3 class="font-mono text-[var(--cyan)] text-xs tracking-widest uppercase mb-3">Dictionary Definition</h3>
+            <p id="def-text" class="text-[var(--text)] text-sm leading-relaxed"></p>
+        </div>
+    </div>
+
+    <!-- Player Auth Modal (Login / Register / Forgot Password) -->
+    <div id="auth-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-[var(--panel)] border border-[var(--border)] rounded-xl max-w-md w-full p-6 shadow-2xl relative">
+            <button onclick="closeAuthModal()" class="absolute top-3 right-3 text-slate-400 hover:text-[var(--cyan)] font-bold text-lg">&times;</button>
+            <h3 id="auth-modal-title" class="font-display text-xl text-[var(--text)] mb-4">Player Login</h3>
+            
+            <!-- Auth Navigation Tabs -->
+            <div id="auth-tabs" class="flex gap-4 mb-4 border-b border-[var(--border)] pb-2 font-mono text-xs">
+                <button id="tab-login" onclick="switchAuthTab('login')" class="text-[var(--cyan)] font-bold pb-1 border-b-2 border-[var(--cyan)]">Log In</button>
+                <button id="tab-register" onclick="switchAuthTab('register')" class="text-[var(--muted)] pb-1">Register</button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="field-label block mb-1">Email Address</label>
+                    <input type="email" id="auth-email" class="control" placeholder="your@email.com">
+                </div>
+
+                <!-- Password Field with Visibility Toggle -->
+                <div id="password-group">
+                    <label class="field-label block mb-1">Password</label>
+                    <div class="relative">
+                        <input type="password" id="auth-password" class="control pr-12" placeholder="••••••••">
+                        <button type="button" onclick="togglePasswordVisibility('auth-password', 'eye-icon-1')" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-text text-sm p-1">
+                            <span id="eye-icon-1">👁️</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Confirm Password Field (Registration mode) -->
+                <div id="confirm-password-group" class="hidden">
+                    <label class="field-label block mb-1">Confirm Password</label>
+                    <div class="relative">
+                        <input type="password" id="auth-password-confirm" class="control pr-12" placeholder="••••••••">
+                        <button type="button" onclick="togglePasswordVisibility('auth-password-confirm', 'eye-icon-2')" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-text text-sm p-1">
+                            <span id="eye-icon-2">👁️</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Forgot Password Option -->
+                <div id="forgot-link-container" class="text-right">
+                    <button type="button" onclick="switchAuthTab('forgot')" class="text-xs text-[var(--cyan)] hover:underline font-mono">Forgot password?</button>
+                </div>
+
+                <button id="auth-submit-btn" onclick="handleAuthSubmit()" class="btn-primary w-full mt-2">Log In</button>
+                <p id="auth-msg" class="text-xs font-mono mt-2 text-center text-[var(--muted)]"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Career Stats Modal -->
+    <div id="stats-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-[var(--panel)] border border-[var(--border)] rounded-xl max-w-lg w-full p-6 shadow-2xl relative">
+            <button onclick="closeStatsModal()" class="absolute top-3 right-3 text-slate-400 hover:text-[var(--cyan)] font-bold text-lg">&times;</button>
+            <h3 class="font-display text-xl text-[var(--text)] mb-4">📊 Career Stats</h3>
+            <div id="stats-content" class="space-y-3 font-mono text-sm text-[var(--muted)]">
+                Calculating stats...
+            </div>
+        </div>
+    </div>
+
+    <!-- Pause Modal -->
+    <div id="pause-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-[var(--panel)] border border-[var(--border)] rounded-xl max-w-sm w-full p-6 text-center shadow-2xl">
+            <h3 class="font-display text-2xl text-[var(--amber)] mb-2">Game Paused</h3>
+            <p id="pause-subtext" class="text-xs text-[var(--muted)] font-mono mb-6">Your progress is safely saved.</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="resumeGame()" class="btn-primary w-full">▶️ Resume Game</button>
+                <button id="save-exit-btn" onclick="saveAndQuit()" class="btn-secondary w-full justify-center">💾 Save & Exit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Game Detection Modal -->
+    <div id="resume-prompt-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-[var(--panel)] border border-[var(--border)] rounded-xl max-w-md w-full p-6 text-center shadow-2xl">
+            <h3 class="font-display text-xl text-[var(--text)] mb-2">Active Game Detected</h3>
+            <p id="resume-prompt-text" class="text-xs text-[var(--muted)] font-mono mb-6">You have a paused crossword saved on your account. Would you like to resume it?</p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="loadActiveGame()" class="btn-primary">Yes, Continue</button>
+                <button onclick="discardActiveGame()" class="btn-secondary btn-danger">Discard & Start New</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // SUPABASE CONFIGURATION
+        const SUPABASE_URL = 'https://irqtncdcvijobrhbyiuv.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlycXRuY2Rjdmlqb2JyaGJ5aXV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzODc3ODAsImV4cCI6MjEwMTk2Mzc4MH0.5JcJzzewjjCbJ4rzkyjhexl7yBu55AmjcCNh37sHUt8';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUser = null;
+        let authMode = 'login'; // 'login', 'register', 'forgot'
+
+        let currentHighlight = [];
+        let typingDirection = 'H';
+        let availabilityData = {};
+        let currentBoardWords = [];
+        let currentGridMatrix = null;
+
+        // --- Scoring engine ---
+        // currentScore = max(0, BASE_SCORE - manualPenalties - timeDecayPoints)
+        // manualPenalties: points lost from check/reveal actions (unchanged model)
+        // timeDecayPoints: points lost from the clock ticking (computed from real time + reveal time penalty)
+        // revealTimePenaltySeconds: EXTRA seconds added to the effective clock for each letter/word revealed
+        //   (visible & separate from real elapsed time — shown in its own HUD stat, and it's what feeds timeDecayPoints)
+        const BASE_SCORE = 2000;
+        const LETTER_REVEAL_TIME_PENALTY = 15; // seconds added per letter revealed
+        const WORD_REVEAL_TIME_PENALTY = 60;   // seconds added per word revealed (incl. words left unsolved on Give Up)
+
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let manualPenalties = 0;
+        let timeDecayPoints = 0;
+        let revealTimePenaltySeconds = 0;
+        let lettersRevealedCount = 0;
+        let wordsRevealedCount = 0;
+        let currentScore = BASE_SCORE;
+        let lastFocusedCell = null;
+        let directionArrowEl = null;
+        let viewedDefinitions = new Set();
+        let isGameActive = false;
+        let isPaused = false;
+        let playedWords = [];
+
+        async function initAuth() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            currentUser = user;
+            updateAuthUI();
+            if (currentUser) {
+                checkActiveGameInDB();
+                playedWords = JSON.parse(localStorage.getItem(`crossword_played_words_${currentUser.id}`) || '[]');
+            } else {
+                playedWords = JSON.parse(sessionStorage.getItem('crossword_played_words_guest') || '[]');
+            }
+            loadAvailability();
+        }
+
+        function updateAuthUI() {
+            const userDisplay = document.getElementById('user-status-display');
+            const authBtn = document.getElementById('auth-btn');
+            const statsBtn = document.getElementById('stats-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+            const logoutBtn = document.getElementById('logout-btn');
+
+            if (currentUser) {
+                userDisplay.textContent = `👤 ${currentUser.email}`;
+                authBtn.classList.add('hidden');
+                statsBtn.classList.remove('hidden');
+                pauseBtn.classList.remove('hidden');
+                logoutBtn.classList.remove('hidden');
+            } else {
+                userDisplay.textContent = `Guest Mode (Temporary Session)`;
+                authBtn.classList.remove('hidden');
+                statsBtn.classList.add('hidden');
+                pauseBtn.classList.remove('hidden'); // Enable pause button in guest mode
+                logoutBtn.classList.add('hidden');
+            }
+        }
+
+        function switchAuthTab(mode) {
+            authMode = mode;
+            const tabLogin = document.getElementById('tab-login');
+            const tabRegister = document.getElementById('tab-register');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const confirmGroup = document.getElementById('confirm-password-group');
+            const passwordGroup = document.getElementById('password-group');
+            const forgotLink = document.getElementById('forgot-link-container');
+            const modalTitle = document.getElementById('auth-modal-title');
+            const msgEl = document.getElementById('auth-msg');
+            msgEl.textContent = "";
+
+            if (mode === 'login') {
+                tabLogin.className = "text-[var(--cyan)] font-bold pb-1 border-b-2 border-[var(--cyan)]";
+                tabRegister.className = "text-[var(--muted)] pb-1";
+                submitBtn.textContent = "Log In";
+                confirmGroup.classList.add('hidden');
+                passwordGroup.classList.remove('hidden');
+                forgotLink.classList.remove('hidden');
+                modalTitle.textContent = "Player Login";
+                document.getElementById('auth-tabs').style.display = 'flex';
+            } else if (mode === 'register') {
+                tabRegister.className = "text-[var(--cyan)] font-bold pb-1 border-b-2 border-[var(--cyan)]";
+                tabLogin.className = "text-[var(--muted)] pb-1";
+                submitBtn.textContent = "Register";
+                confirmGroup.classList.remove('hidden');
+                passwordGroup.classList.remove('hidden');
+                forgotLink.classList.add('hidden');
+                modalTitle.textContent = "Create New Account";
+                document.getElementById('auth-tabs').style.display = 'flex';
+            } else if (mode === 'forgot') {
+                submitBtn.textContent = "Send Reset Link";
+                confirmGroup.classList.add('hidden');
+                passwordGroup.classList.add('hidden');
+                forgotLink.classList.add('hidden');
+                modalTitle.textContent = "Reset Password";
+                document.getElementById('auth-tabs').style.display = 'none';
+            }
+        }
+
+        function togglePasswordVisibility(fieldId, iconId) {
+            const input = document.getElementById(fieldId);
+            const icon = document.getElementById(iconId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.textContent = '🔒';
+            } else {
+                input.type = 'password';
+                icon.textContent = '👁️';
+            }
+        }
+
+        function openAuthModal() {
+            switchAuthTab('login');
+            document.getElementById('auth-modal').classList.remove('hidden');
+        }
+        function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); }
+
+        async function handleAuthSubmit() {
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const msgEl = document.getElementById('auth-msg');
+            const submitBtn = document.getElementById('auth-submit-btn');
+
+            if (!email) {
+                msgEl.textContent = "Please enter an email address.";
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Processing...";
+            msgEl.textContent = "";
+
+            try {
+                if (authMode === 'login') {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                    if (error) {
+                        msgEl.textContent = error.message;
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Log In";
+                    } else {
+                        currentUser = data.user;
+                        closeAuthModal();
+                        updateAuthUI();
+                        initAuth();
+                    }
+                } else if (authMode === 'register') {
+                    const confirmPassword = document.getElementById('auth-password-confirm').value;
+                    if (password !== confirmPassword) {
+                        msgEl.textContent = "Passwords do not match.";
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Register";
+                        return;
+                    }
+                    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                    if (error) {
+                        msgEl.textContent = error.message;
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Register";
+                    } else {
+                        msgEl.textContent = "Registration successful! You can now log in.";
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Register";
+                    }
+                } else if (authMode === 'forgot') {
+                    const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+                    if (error) {
+                        msgEl.textContent = error.message;
+                    } else {
+                        msgEl.textContent = "Email sent! Check your inbox.";
+                    }
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Send Reset Link";
+                }
+            } catch (err) {
+                msgEl.textContent = "An unexpected error occurred.";
+                submitBtn.disabled = false;
+                submitBtn.textContent = authMode === 'login' ? "Log In" : (authMode === 'register' ? "Register" : "Send Reset Link");
+            }
+        }
+
+        async function logoutUser() {
+            await supabaseClient.auth.signOut();
+            currentUser = null;
+            updateAuthUI();
+            stopTimer();
+            window.location.reload();
+        }
+
+        function setStatus(text, type) {
+            const status = document.getElementById('status');
+            status.textContent = text;
+            status.className = `status-banner status-${type} flex-1`;
+        }
+
+        function updateDirectionIndicator() {
+            const el = document.getElementById('direction-value');
+            if (el) {
+                el.textContent = typingDirection === 'H' ? '→ Across' : '↓ Down';
+            }
+            if (lastFocusedCell) {
+                const r = lastFocusedCell.dataset.row;
+                const c = lastFocusedCell.dataset.col;
+                renderDirectionArrow(`wrapper-${r}-${c}`, typingDirection);
+            }
+        }
+
+        function renderDirectionArrow(wrapperId, dir) {
+            if (directionArrowEl) directionArrowEl.remove();
+            const wrapper = document.getElementById(wrapperId);
+            if (!wrapper) { directionArrowEl = null; return; }
+            const arrow = document.createElement('span');
+            arrow.className = 'direction-arrow';
+            arrow.setAttribute('aria-hidden', 'true');
+            arrow.textContent = dir === 'H' ? '▸' : '▾';
+            wrapper.appendChild(arrow);
+            directionArrowEl = arrow;
+        }
+
+        function updateScoreDisplay(flash) {
+            const el = document.getElementById('score-display');
+            if (!el) return;
+            el.textContent = currentScore;
+            if (flash) {
+                el.classList.remove('hud-value-flash');
+                void el.offsetWidth;
+                el.classList.add('hud-value-flash');
+            }
+        }
+
+        function updateTimePenaltyDisplay(flash) {
+            const el = document.getElementById('time-penalty-display');
+            if (!el) return;
+            el.textContent = `+${revealTimePenaltySeconds}s`;
+            if (flash) {
+                el.classList.remove('hud-value-flash');
+                void el.offsetWidth;
+                el.classList.add('hud-value-flash');
+            }
+        }
+
+        function updateProgressDisplay() {
+            const cells = document.querySelectorAll('.crossword-cell');
+            const total = cells.length;
+            const fillEl = document.getElementById('progress-fill');
+            const textEl = document.getElementById('progress-display');
+            if (total === 0) {
+                if (textEl) textEl.textContent = '0%';
+                if (fillEl) fillEl.style.width = '0%';
+                return;
+            }
+            const resolved = document.querySelectorAll('.crossword-cell[data-resolved="true"]').length;
+            const pct = Math.round((resolved / total) * 100);
+            if (textEl) textEl.textContent = `${pct}%`;
+            if (fillEl) fillEl.style.width = `${pct}%`;
+        }
+
+        // Recomputes currentScore from the current penalty totals and repaints the HUD immediately.
+        // Call this right after ANY penalty-causing action — never rely on the next timer tick,
+        // since the game can stop (puzzle solved, paused, given up) before that tick fires.
+        function recalcScore(flash) {
+            currentScore = Math.max(0, BASE_SCORE - manualPenalties - timeDecayPoints);
+            updateScoreDisplay(flash);
+        }
+
+        function decayRateForDifficulty(diff) {
+            // Points deducted per tick, and how many seconds per tick.
+            if (diff === 'easy') return { seconds: 20, points: 2 };
+            if (diff === 'hard') return { seconds: 40, points: 2 };
+            return { seconds: 30, points: 2 }; // medium
+        }
+
+        function startTimer(resume = false) {
+            stopTimer();
+            if (!resume) {
+                secondsElapsed = 0;
+                manualPenalties = 0;
+                timeDecayPoints = 0;
+                revealTimePenaltySeconds = 0;
+                lettersRevealedCount = 0;
+                wordsRevealedCount = 0;
+                currentScore = BASE_SCORE;
+            }
+            isGameActive = true;
+            isPaused = false;
+            updateTimerDisplay();
+            updateScoreDisplay(false);
+            updateTimePenaltyDisplay(false);
+            updateProgressDisplay();
+            const hud = document.getElementById('game-hud');
+            if (hud) hud.classList.remove('hidden');
+
+            timerInterval = setInterval(() => {
+                if (!isPaused && isGameActive) {
+                    secondsElapsed++;
+
+                    // Effective time = real time played + time penalty accrued from reveals.
+                    // This is what the score decay is based on, so reveals compound into the score too.
+                    const effectiveElapsed = secondsElapsed + revealTimePenaltySeconds;
+                    const diff = document.getElementById('difficulty-select').value;
+                    const rate = decayRateForDifficulty(diff);
+                    const newDecayPoints = Math.floor(effectiveElapsed / rate.seconds) * rate.points;
+
+                    const changed = newDecayPoints !== timeDecayPoints;
+                    timeDecayPoints = newDecayPoints;
+                    recalcScore(changed);
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            isGameActive = false;
+        }
+
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function updateTimerDisplay() {
+            const timerEl = document.getElementById('timer-display');
+            if (timerEl) {
+                timerEl.textContent = formatTime(secondsElapsed);
+            }
+        }
+
+        function pauseGame() {
+            if (!isGameActive && !isPaused) return;
+            isPaused = true;
+
+            const saveExitBtn = document.getElementById('save-exit-btn');
+            const pauseSubtext = document.getElementById('pause-subtext');
+
+            if (!currentUser) {
+                // Guest mode: Explicitly hide Save & Exit
+                if (saveExitBtn) {
+                    saveExitBtn.classList.add('hidden');
+                    saveExitBtn.style.display = 'none';
+                }
+                if (pauseSubtext) pauseSubtext.textContent = 'Guest sessions are temporary and cannot be saved.';
+            } else {
+                // Logged in mode: Show Save & Exit
+                if (saveExitBtn) {
+                    saveExitBtn.classList.remove('hidden');
+                    saveExitBtn.style.display = 'inline-flex';
+                }
+                if (pauseSubtext) pauseSubtext.textContent = 'Your progress is safely saved.';
+                saveActiveGameToDB();
+            }
+
+            document.getElementById('pause-modal').classList.remove('hidden');
+        }
+
+        function resumeGame() {
+            isPaused = false;
+            isGameActive = true;
+            document.getElementById('pause-modal').classList.add('hidden');
+            setStatus('Game resumed.', 'info');
+        }
+
+        async function saveAndQuit() {
+            if (currentUser) await saveActiveGameToDB();
+            stopTimer();
+            document.getElementById('pause-modal').classList.add('hidden');
+            document.getElementById('grid-container').innerHTML = `
+                <div class="text-center py-8">
+                    <div class="text-4xl mb-3">💾</div>
+                    <p class="text-text font-medium text-lg mb-4">Game saved and paused.</p>
+                    <button onclick="loadActiveGame()" class="btn-primary">▶️ Resume Game</button>
+                </div>`;
+            setStatus('Game saved successfully.', 'info');
+        }
+
+        async function saveActiveGameToDB() {
+            if (!currentUser) return;
+            const gridData = {
+                secondsElapsed, manualPenalties, timeDecayPoints, revealTimePenaltySeconds,
+                lettersRevealedCount, wordsRevealedCount, currentScore,
+                viewedDefinitions: Array.from(viewedDefinitions),
+                currentBoardWords, grid: currentGridMatrix,
+                topic: document.getElementById('topic-select').value,
+                difficulty: document.getElementById('difficulty-select').value,
+                cells: Array.from(document.querySelectorAll('.crossword-cell')).map(c => ({
+                    row: c.dataset.row, col: c.dataset.col, val: c.innerText, resolved: c.dataset.resolved
+                }))
+            };
+            await supabaseClient.from('active_game_states').upsert({
+                user_id: currentUser.id,
+                game_data: gridData,
+                updated_at: new Date()
+            });
+        }
+
+        async function checkActiveGameInDB() {
+            if (!currentUser) return;
+            const { data } = await supabaseClient.from('active_game_states').select('*').eq('user_id', currentUser.id).single();
+            if (data && data.game_data) {
+                document.getElementById('resume-prompt-modal').classList.remove('hidden');
+            }
+        }
+
+        async function loadActiveGame() {
+            document.getElementById('resume-prompt-modal').classList.add('hidden');
+            const { data } = await supabaseClient.from('active_game_states').select('*').eq('user_id', currentUser.id).single();
+            if (data && data.game_data) {
+                renderResumedBoard(data.game_data);
+            }
+        }
+
+        async function discardActiveGame() {
+            document.getElementById('resume-prompt-modal').classList.add('hidden');
+            if (currentUser) {
+                await supabaseClient.from('active_game_states').delete().eq('user_id', currentUser.id);
+            }
+        }
+
+        async function loadAvailability() {
+            try {
+                const response = await fetch('http://localhost:5000/api/available');
+                const data = await response.json();
+                availabilityData = data.success ? data.availability : {};
+                
+                const topicSelect = document.getElementById('topic-select');
+                topicSelect.innerHTML = ''; 
+                
+                if (data.success && Object.keys(availabilityData).length > 0) {
+                    const topics = Object.keys(availabilityData).sort();
+                    topics.forEach(topic => {
+                        const option = document.createElement('option');
+                        option.value = topic; option.textContent = topic;
+                        topicSelect.appendChild(option);
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.textContent = "No topics available";
+                    topicSelect.appendChild(option);
+                }
+            } catch (error) {
+                console.error('API Error:', error);
+            }
+            updateDifficultyOptions();
+        }
+
+        function onDifficultyChange() {
+            const topicSelect = document.getElementById('topic-select');
+            const difficultySelect = document.getElementById('difficulty-select');
+            if (!topicSelect.value) return;
+            const info = (availabilityData[topicSelect.value] || {})[difficultySelect.value];
+            document.getElementById('difficulty-hint').textContent = info
+                ? `${info.count} word${info.count === 1 ? '' : 's'} indexed for this combination.`
+                : 'No approved words yet for this combination.';
+        }
+
+        function updateDifficultyOptions() {
+            const topicSelect = document.getElementById('topic-select');
+            const difficultySelect = document.getElementById('difficulty-select');
+            if (!topicSelect.value) return;
+
+            const topicData = availabilityData[topicSelect.value] || {};
+            let anySufficient = false;
+
+            Array.from(difficultySelect.options).forEach(option => {
+                const sufficient = topicData[option.value]?.sufficient || false;
+                option.disabled = !sufficient;
+                if (sufficient) anySufficient = true;
+            });
+
+            if (!anySufficient) {
+                document.getElementById('generate-btn').disabled = true;
+            } else {
+                const currentOption = difficultySelect.selectedOptions[0];
+                if (!currentOption || currentOption.disabled) {
+                    difficultySelect.value = Array.from(difficultySelect.options).find(o => !o.disabled).value;
+                }
+                document.getElementById('generate-btn').disabled = false;
+            }
+            onDifficultyChange();
+        }
+
+        async function cargarCrucigrama() {
+            const generateBtn = document.getElementById('generate-btn');
+            const container = document.getElementById('grid-container');
+            const cluesAcross = document.getElementById('clues-across');
+            const cluesDown = document.getElementById('clues-down');
+
+            const selectedTopic = document.getElementById('topic-select').value;
+            const selectedDifficulty = document.getElementById('difficulty-select').value;
+
+            if (document.getElementById('difficulty-select').selectedOptions[0].disabled) return;
+
+            stopTimer();
+            document.getElementById('game-hud').classList.add('hidden');
+
+            container.innerHTML = '';
+            container.className = 'grid gap-[1px] overflow-auto max-w-full mb-8 rounded-xl';
+            cluesAcross.innerHTML = '';
+            cluesDown.innerHTML = '';
+            currentHighlight = [];
+            lastFocusedCell = null;
+            directionArrowEl = null;
+            viewedDefinitions = new Set();
+            currentBoardWords = [];
+            currentGridMatrix = null;
+            generateBtn.disabled = true;
+            setStatus(`Generating unique board for ${selectedTopic}...`, 'info');
+
+            try {
+                const excludeStr = playedWords.join(',');
+                const params = new URLSearchParams({
+                    topic: selectedTopic,
+                    difficulty: selectedDifficulty,
+                    exclude: excludeStr
+                });
+                const response = await fetch(`http://localhost:5000/api/generate?${params.toString()}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const newIds = data.placed_words.map(w => w.id);
+                    playedWords = [...new Set([...playedWords, ...newIds])];
+                    if (currentUser) {
+                        localStorage.setItem(`crossword_played_words_${currentUser.id}`, JSON.stringify(playedWords));
+                    } else {
+                        sessionStorage.setItem('crossword_played_words_guest', JSON.stringify(playedWords));
+                    }
+
+                    currentBoardWords = data.placed_words;
+                    currentGridMatrix = data.grid;
+                    const grid = data.grid;
+                    const cols = grid[0].length;
+                    
+                    const numberMap = {};
+                    const acrossWords = [];
+                    const downWords = [];
+
+                    data.placed_words.forEach(w => {
+                        numberMap[`${w.row}-${w.col}`] = w.number;
+                        (w.dir === 'H' ? acrossWords : downWords).push(w);
+                    });
+
+                    acrossWords.sort((a, b) => a.number - b.number);
+                    downWords.sort((a, b) => a.number - b.number);
+
+                    const escapeHtml = (s) => (s || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+
+                    const renderClue = (wordObj, listEl) => {
+                        const li = document.createElement('li');
+                        li.className = 'clue-item group flex-col sm:flex-row relative';
+                        li.title = 'Left-click: jump to word · Right-click: clear word';
+                        li.oncontextmenu = (e) => {
+                            e.preventDefault();
+                            clearWordWithConfirm(wordObj.row, wordObj.col, wordObj.dir, wordObj.word.length);
+                        };
+
+                        const safeDef = escapeHtml(wordObj.definition);
+                        const safeClue = escapeHtml(wordObj.clue);
+
+                        li.innerHTML = `
+                            <div class="flex items-start gap-2 w-full">
+                                <span class="clue-number" onclick="highlightWord(${wordObj.row}, ${wordObj.col}, '${wordObj.dir}', ${wordObj.word.length})">${wordObj.number}</span>
+                                <span class="clue-text flex-1" onclick="highlightWord(${wordObj.row}, ${wordObj.col}, '${wordObj.dir}', ${wordObj.word.length})">${safeClue}</span>
+                                <button onclick="showDefinition('${safeDef}', ${wordObj.id})" class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-[#1E2740] rounded border border-[#2A3450] text-[#F0B94B] hover:bg-[#1A2136] hover:text-white" title="Dictionary Definition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                </button>
+                            </div>
+                        `;
+                        listEl.appendChild(li);
+                    };
+
+                    acrossWords.forEach(w => renderClue(w, cluesAcross));
+                    downWords.forEach(w => renderClue(w, cluesDown));
+
+                    container.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+                    grid.forEach((row, rIdx) => {
+                        row.forEach((cell, cIdx) => {
+                            const div = document.createElement('div');
+                            div.className = 'cell-wrapper w-8 h-8 sm:w-10 sm:h-10 relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
+
+                            if (cell === '.') {
+                                div.classList.add('cell-block');
+                            } else {
+                                div.classList.add('cell-default');
+                                div.id = `wrapper-${rIdx}-${cIdx}`;
+
+                                if (numberMap[`${rIdx}-${cIdx}`]) {
+                                    const numSpan = document.createElement('span');
+                                    numSpan.className = 'cell-number absolute top-[2px] left-[2px] text-[9px] sm:text-[10px] leading-none font-bold pointer-events-none';
+                                    numSpan.textContent = numberMap[`${rIdx}-${cIdx}`];
+                                    div.appendChild(numSpan);
+                                }
+
+                                const inputArea = document.createElement('div');
+                                inputArea.className = 'crossword-cell w-full h-full flex items-center justify-center cursor-text uppercase transition-colors';
+                                inputArea.id = `cell-${rIdx}-${cIdx}`;
+                                inputArea.dataset.row = rIdx;
+                                inputArea.dataset.col = cIdx;
+                                inputArea.dataset.correct = cell;
+                                inputArea.dataset.resolved = 'false';
+                                inputArea.contentEditable = 'true';
+
+                                inputArea.addEventListener('keydown', handleKeydown);
+                                inputArea.addEventListener('focus', (e) => onCellFocus(e.target));
+                                div.appendChild(inputArea);
+                            }
+                            container.appendChild(div);
+                        });
+                    });
+
+                    setStatus(`Board ready — ${data.count} new words placed.`, 'success');
+                    startTimer(false);
+                    updateDirectionIndicator();
+                } else {
+                    if (playedWords.length > 0) {
+                        setStatus("You've exhausted this category! Resetting memory and retrying...", "warning");
+                        playedWords = [];
+                        if (currentUser) {
+                            localStorage.removeItem(`crossword_played_words_${currentUser.id}`);
+                        } else {
+                            sessionStorage.removeItem('crossword_played_words_guest');
+                        }
+                        setTimeout(cargarCrucigrama, 1800);
+                    } else {
+                        setStatus(data.message, 'error');
+                    }
+                }
+            } catch (error) {
+                setStatus('Could not reach the Flask API. Make sure app.py is running.', 'error');
+            } finally {
+                generateBtn.disabled = false;
+            }
+        }
+
+        function renderResumedBoard(gd) {
+            stopTimer();
+            document.getElementById('game-hud').classList.add('hidden');
+
+            const container = document.getElementById('grid-container');
+            const cluesAcross = document.getElementById('clues-across');
+            const cluesDown = document.getElementById('clues-down');
+
+            document.getElementById('topic-select').value = gd.topic;
+            document.getElementById('difficulty-select').value = gd.difficulty;
+
+            container.innerHTML = '';
+            container.className = 'grid gap-[1px] overflow-auto max-w-full mb-8 rounded-xl';
+            cluesAcross.innerHTML = '';
+            cluesDown.innerHTML = '';
+            currentHighlight = [];
+            lastFocusedCell = null;
+            directionArrowEl = null;
+            viewedDefinitions = new Set(gd.viewedDefinitions || []);
+            currentBoardWords = gd.currentBoardWords;
+            currentGridMatrix = gd.grid;
+
+            const grid = gd.grid;
+            const cols = grid[0].length;
+            
+            const numberMap = {};
+            const acrossWords = [];
+            const downWords = [];
+
+            currentBoardWords.forEach(w => {
+                numberMap[`${w.row}-${w.col}`] = w.number;
+                (w.dir === 'H' ? acrossWords : downWords).push(w);
+            });
+
+            acrossWords.sort((a, b) => a.number - b.number);
+            downWords.sort((a, b) => a.number - b.number);
+
+            const escapeHtml = (s) => (s || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+
+            const renderClue = (wordObj, listEl) => {
+                const li = document.createElement('li');
+                li.className = 'clue-item group flex-col sm:flex-row relative';
+                li.title = 'Left-click: jump to word · Right-click: clear word';
+                li.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    clearWordWithConfirm(wordObj.row, wordObj.col, wordObj.dir, wordObj.word.length);
+                };
+
+                const safeDef = escapeHtml(wordObj.definition);
+                const safeClue = escapeHtml(wordObj.clue);
+
+                li.innerHTML = `
+                    <div class="flex items-start gap-2 w-full">
+                        <span class="clue-number" onclick="highlightWord(${wordObj.row}, ${wordObj.col}, '${wordObj.dir}', ${wordObj.word.length})">${wordObj.number}</span>
+                        <span class="clue-text flex-1" onclick="highlightWord(${wordObj.row}, ${wordObj.col}, '${wordObj.dir}', ${wordObj.word.length})">${safeClue}</span>
+                        <button onclick="showDefinition('${safeDef}', ${wordObj.id})" class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-[#1E2740] rounded border border-[#2A3450] text-[#F0B94B] hover:bg-[#1A2136] hover:text-white" title="Dictionary Definition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        </button>
+                    </div>
+                `;
+                listEl.appendChild(li);
+            };
+
+            acrossWords.forEach(w => renderClue(w, cluesAcross));
+            downWords.forEach(w => renderClue(w, cluesDown));
+
+            container.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+            grid.forEach((row, rIdx) => {
+                row.forEach((cell, cIdx) => {
+                    const div = document.createElement('div');
+                    div.className = 'cell-wrapper w-8 h-8 sm:w-10 sm:h-10 relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
+
+                    if (cell === '.') {
+                        div.classList.add('cell-block');
+                    } else {
+                        div.classList.add('cell-default');
+                        div.id = `wrapper-${rIdx}-${cIdx}`;
+
+                        if (numberMap[`${rIdx}-${cIdx}`]) {
+                            const numSpan = document.createElement('span');
+                            numSpan.className = 'cell-number absolute top-[2px] left-[2px] text-[9px] sm:text-[10px] leading-none font-bold pointer-events-none';
+                            numSpan.textContent = numberMap[`${rIdx}-${cIdx}`];
+                            div.appendChild(numSpan);
+                        }
+
+                        const inputArea = document.createElement('div');
+                        inputArea.className = 'crossword-cell w-full h-full flex items-center justify-center cursor-text uppercase transition-colors';
+                        inputArea.id = `cell-${rIdx}-${cIdx}`;
+                        inputArea.dataset.row = rIdx;
+                        inputArea.dataset.col = cIdx;
+                        inputArea.dataset.correct = cell;
+                        inputArea.dataset.resolved = 'false';
+                        inputArea.contentEditable = 'true';
+
+                        inputArea.addEventListener('keydown', handleKeydown);
+                        inputArea.addEventListener('focus', (e) => onCellFocus(e.target));
+                        div.appendChild(inputArea);
+                    }
+                    container.appendChild(div);
+                });
+            });
+
+            secondsElapsed = gd.secondsElapsed;
+            manualPenalties = gd.manualPenalties;
+            timeDecayPoints = gd.timeDecayPoints || 0;
+            revealTimePenaltySeconds = gd.revealTimePenaltySeconds || 0;
+            lettersRevealedCount = gd.lettersRevealedCount || 0;
+            wordsRevealedCount = gd.wordsRevealedCount || 0;
+            currentScore = gd.currentScore;
+
+            gd.cells.forEach(sc => {
+                const target = document.getElementById(`cell-${sc.row}-${sc.col}`);
+                const wrapper = document.getElementById(`wrapper-${sc.row}-${sc.col}`);
+                if (target && wrapper && sc.val) {
+                    target.innerText = sc.val;
+                    target.dataset.resolved = sc.resolved;
+                    if (sc.resolved === 'true') {
+                        wrapper.classList.remove('cell-default');
+                        wrapper.classList.add('cell-correct');
+                    }
+                }
+            });
+
+            discardActiveGame();
+            setStatus(`Game resumed successfully.`, 'success');
+            startTimer(true); // <--- Continuar temporizador conservando tiempo transcurrido y puntos
+            updateDirectionIndicator();
+        }
+
+        function onCellFocus(cell) {
+            lastFocusedCell = cell;
+            clearHighlight();
+            let r = parseInt(cell.dataset.row);
+            let c = parseInt(cell.dataset.col);
+
+            let hasAcross = currentBoardWords.some(w => (w.dir === 'H' && r === w.row && c >= w.col && c < w.col + w.word.length) || (w.dir === 'H' && r === w.row && c === w.col));
+            let hasDown = currentBoardWords.some(w => (w.dir === 'V' && c === w.col && r >= w.row && r < w.row + w.word.length) || (w.dir === 'V' && c === w.col && r === w.row));
+
+            if (hasAcross && !hasDown) typingDirection = 'H';
+            else if (hasDown && !hasAcross) typingDirection = 'V';
+            else {
+                let fitsCurrent = currentBoardWords.some(w => w.dir === typingDirection && 
+                    ((typingDirection === 'H' && r === w.row && c >= w.col && c < w.col + w.word.length) ||
+                     (typingDirection === 'V' && c === w.col && r >= w.row && r < w.row + w.word.length)));
+                if (!fitsCurrent) typingDirection = (typingDirection === 'H') ? 'V' : 'H';
+            }
+            updateDirectionIndicator();
+        }
+
+        function revealLetter() {
+            if (!lastFocusedCell) { setStatus('Click on a cell first to reveal its letter.', 'warning'); return; }
+            if (lastFocusedCell.dataset.resolved === 'true') {
+                lastFocusedCell.innerText = lastFocusedCell.dataset.correct;
+                lastFocusedCell.parentElement.className = lastFocusedCell.parentElement.className.replace(/cell-default|cell-incorrect/g, '').trim() + ' cell-correct';
+                updateProgressDisplay();
+                setStatus('Restored resolved letter (no penalty).', 'info');
+                return;
+            }
+            lastFocusedCell.innerText = lastFocusedCell.dataset.correct;
+            lastFocusedCell.dataset.resolved = 'true';
+            lastFocusedCell.parentElement.className = lastFocusedCell.parentElement.className.replace(/cell-default|cell-incorrect/g, '').trim() + ' cell-correct';
+
+            manualPenalties += 50;
+            lettersRevealedCount++;
+            revealTimePenaltySeconds += LETTER_REVEAL_TIME_PENALTY;
+            updateTimePenaltyDisplay(true);
+            recalcScore(true);
+            updateProgressDisplay();
+            setStatus(`Letter revealed (-50 pts, +${LETTER_REVEAL_TIME_PENALTY}s time penalty).`, 'warning');
+        }
+
+        function revealWord() {
+            if (!lastFocusedCell) { setStatus('Click on a starting cell (with a number) first.', 'warning'); return; }
+            let r = parseInt(lastFocusedCell.dataset.row);
+            let c = parseInt(lastFocusedCell.dataset.col);
+            let targetWord = currentBoardWords.find(w => w.row === r && w.col === c && w.dir === typingDirection);
+
+            if (!targetWord) { setStatus('You must stand on the starting cell matching your direction.', 'warning'); return; }
+
+            let startRow = targetWord.row, startCol = targetWord.col, wordStr = targetWord.word, dir = targetWord.dir;
+            let allAlreadyResolved = true;
+            for (let i = 0; i < wordStr.length; i++) {
+                let cell = document.getElementById(`cell-${dir === 'H' ? startRow : startRow + i}-${dir === 'H' ? startCol + i : startCol}`);
+                if (cell && cell.dataset.resolved !== 'true') allAlreadyResolved = false;
+            }
+
+            for (let i = 0; i < wordStr.length; i++) {
+                let cellR = dir === 'H' ? startRow : startRow + i;
+                let cellC = dir === 'H' ? startCol + i : startCol;
+                let wrapper = document.getElementById(`wrapper-${cellR}-${cellC}`);
+                let cell = document.getElementById(`cell-${cellR}-${cellC}`);
+                if (cell && wrapper) {
+                    cell.innerText = cell.dataset.correct;
+                    cell.dataset.resolved = 'true';
+                    wrapper.className = wrapper.className.replace(/cell-default|cell-incorrect|highlight-word/g, '').trim() + ' cell-correct highlight-word';
+                }
+            }
+
+            if (allAlreadyResolved) {
+                setStatus(`Word "${wordStr}" restored (Already resolved, no penalty).`, 'info');
+            } else {
+                manualPenalties += 200;
+                wordsRevealedCount++;
+                revealTimePenaltySeconds += WORD_REVEAL_TIME_PENALTY;
+                updateTimePenaltyDisplay(true);
+                recalcScore(true);
+                setStatus(`Word "${wordStr}" revealed (-200 pts, +${WORD_REVEAL_TIME_PENALTY}s time penalty).`, 'warning');
+            }
+            updateProgressDisplay();
+        }
+
+        function checkWord() {
+            if (!lastFocusedCell) { setStatus('Click on a starting cell first.', 'warning'); return; }
+            let r = parseInt(lastFocusedCell.dataset.row), c = parseInt(lastFocusedCell.dataset.col);
+            let targetWord = currentBoardWords.find(w => w.row === r && w.col === c && w.dir === typingDirection);
+
+            if (!targetWord) { setStatus('You must stand on the starting cell matching your direction.', 'warning'); return; }
+
+            let startRow = targetWord.row, startCol = targetWord.col, wordStr = targetWord.word, dir = targetWord.dir;
+            let cellsToCheck = [], allFilled = true, allCorrect = true, allAlreadyResolved = true;
+
+            for (let i = 0; i < wordStr.length; i++) {
+                let cellR = dir === 'H' ? startRow : startRow + i;
+                let cellC = dir === 'H' ? startCol + i : startCol;
+                let wrapper = document.getElementById(`wrapper-${cellR}-${cellC}`);
+                let cell = document.getElementById(`cell-${cellR}-${cellC}`);
+                if (cell && wrapper) {
+                    let val = cell.innerText.trim().toUpperCase();
+                    if (val === '') allFilled = false;
+                    if (val !== cell.dataset.correct) allCorrect = false;
+                    if (cell.dataset.resolved !== 'true') allAlreadyResolved = false;
+                    cellsToCheck.push({ wrapper, cell, isCorrect: val === cell.dataset.correct });
+                }
+            }
+
+            if (!allFilled) { setStatus('The word must be completely filled.', 'warning'); return; }
+
+            cellsToCheck.forEach(item => {
+                item.wrapper.className = item.wrapper.className.replace(/cell-correct|cell-incorrect|cell-default/g, '').trim();
+                item.wrapper.classList.add(item.isCorrect ? 'cell-correct' : 'cell-incorrect');
+            });
+
+            if (allCorrect) {
+                cellsToCheck.forEach(item => item.cell.dataset.resolved = 'true');
+                if (!allAlreadyResolved) {
+                    manualPenalties += 10;
+                    setStatus('Word is correct! (-10 pts penalty).', 'success');
+                } else {
+                    setStatus('Word restored! (Already resolved, no penalty).', 'info');
+                }
+            } else {
+                if (!allAlreadyResolved) {
+                    manualPenalties += 50;
+                    setStatus('Word has errors! (-50 pts penalty).', 'error');
+                } else {
+                    setStatus('Word has errors! Fix them to restore green.', 'error');
+                }
+            }
+            recalcScore(!allAlreadyResolved);
+            updateProgressDisplay();
+        }
+
+        async function checkAnswers() {
+            const cells = document.querySelectorAll('.crossword-cell');
+            let allCorrect = true, hasEmpty = false, anyFilled = false;
+            let correctNewCount = 0, incorrectNewCount = 0;
+
+            cells.forEach(cell => {
+                const parent = cell.parentElement;
+                parent.className = parent.className.replace(/cell-correct|cell-incorrect|highlight-word|cell-default/g, '').trim();
+                let val = cell.innerText.trim().toUpperCase();
+
+                if (val === '') { hasEmpty = true; parent.classList.add('cell-default'); allCorrect = false; }
+                else {
+                    anyFilled = true;
+                    let isRight = (val === cell.dataset.correct);
+                    let isResolved = (cell.dataset.resolved === 'true');
+                    if (isRight) {
+                        parent.classList.add('cell-correct');
+                        cell.dataset.resolved = 'true';
+                        if (!isResolved) correctNewCount++;
+                    } else {
+                        parent.classList.add('cell-incorrect');
+                        allCorrect = false;
+                        if (!isResolved) incorrectNewCount++;
+                    }
+                }
+            });
+
+            if (!anyFilled) { setStatus('Start typing letters to check.', 'warning'); return; }
+
+            let penalty = (correctNewCount * 5) + (incorrectNewCount * 25);
+            manualPenalties += penalty;
+            recalcScore(penalty > 0);
+            updateProgressDisplay();
+
+            if (allCorrect) {
+                stopTimer();
+                setStatus(`All answers correct in ${formatTime(secondsElapsed)}! Final Score: ${currentScore} pts 🎉`, 'success');
+                if (currentUser) await recordGameSession(true, false);
+            } else if (hasEmpty) {
+                setStatus(`Some boxes empty. Keep trying! (-${penalty} pts)`, 'warning');
+            } else {
+                setStatus(`Some answers incorrect. Keep trying! (-${penalty} pts)`, 'error');
+            }
+        }
+
+        async function recordGameSession(completed, gaveUp) {
+            if (!currentUser) return;
+            const topic = document.getElementById('topic-select').value;
+            const difficulty = document.getElementById('difficulty-select').value;
+            await supabaseClient.from('game_sessions').insert({
+                user_id: currentUser.id,
+                topic, difficulty,
+                word_count: currentBoardWords.length,
+                duration_seconds: secondsElapsed,
+                time_penalty_seconds: revealTimePenaltySeconds,
+                letters_revealed: lettersRevealedCount,
+                words_revealed: wordsRevealedCount,
+                completed, gave_up: gaveUp,
+                final_score: currentScore
+            });
+            await discardActiveGame();
+        }
+
+        async function openStatsModal() {
+            if (!currentUser) return;
+            const modal = document.getElementById('stats-modal');
+            const content = document.getElementById('stats-content');
+            modal.classList.remove('hidden');
+            content.textContent = "Calculating stats...";
+
+            const { data, error } = await supabaseClient.from('game_sessions').select('*').eq('user_id', currentUser.id);
+            if (error || !data) { content.textContent = "Error loading stats."; return; }
+
+            const totalPlayed = data.length;
+            const completed = data.filter(d => d.completed).length;
+            const totalTime = data.reduce((acc, curr) => acc + curr.duration_seconds, 0);
+            const totalScoreSum = data.reduce((acc, curr) => acc + curr.final_score, 0);
+            const avgScore = completed > 0 ? Math.round(data.filter(d => d.completed).reduce((acc, curr) => acc + curr.final_score, 0) / completed) : 0;
+            const ratio = totalPlayed > 0 ? Math.round((completed / totalPlayed) * 100) : 0;
+            const lettersRevealedTotal = data.reduce((acc, curr) => acc + (curr.letters_revealed || 0), 0);
+            const wordsRevealedTotal = data.reduce((acc, curr) => acc + (curr.words_revealed || 0), 0);
+
+            // Breakdown by difficulty
+            const byDifficulty = {};
+            data.forEach(d => {
+                const diff = d.difficulty || 'unknown';
+                if (!byDifficulty[diff]) byDifficulty[diff] = { played: 0, completed: 0, scoreSum: 0, completedScoreSum: 0 };
+                const b = byDifficulty[diff];
+                b.played++;
+                b.scoreSum += d.final_score;
+                if (d.completed) { b.completed++; b.completedScoreSum += d.final_score; }
+            });
+            const diffOrder = ['easy', 'medium', 'hard'];
+            const diffKeys = [...diffOrder.filter(d => byDifficulty[d]), ...Object.keys(byDifficulty).filter(d => !diffOrder.includes(d))];
+            const diffRows = diffKeys.map(d => {
+                const b = byDifficulty[d];
+                const dRatio = b.played > 0 ? Math.round((b.completed / b.played) * 100) : 0;
+                const dAvg = b.completed > 0 ? Math.round(b.completedScoreSum / b.completed) : 0;
+                return `
+                    <tr class="border-t border-[var(--border)]">
+                        <td class="py-1.5 pr-3 capitalize text-[var(--text)]">${d}</td>
+                        <td class="py-1.5 pr-3 text-center">${b.played}</td>
+                        <td class="py-1.5 pr-3 text-center">${b.completed} (${dRatio}%)</td>
+                        <td class="py-1.5 pr-3 text-center">${dAvg}</td>
+                        <td class="py-1.5 text-center">${b.scoreSum}</td>
+                    </tr>`;
+            }).join('');
+
+            content.innerHTML = `
+                <p>🧩 Total games played: <span class="text-[var(--text)] font-bold">${totalPlayed}</span></p>
+                <p>✅ Completed: <span class="text-[var(--text)] font-bold">${completed} (${ratio}%)</span></p>
+                <p>⏱️ Total time played: <span class="text-[var(--text)] font-bold">${Math.floor(totalTime / 60)}m ${totalTime % 60}s</span></p>
+                <p>🏆 Total Score (career XP): <span class="text-[var(--text)] font-bold">${totalScoreSum} pts</span></p>
+                <p>⭐ Average Score (completed games): <span class="text-[var(--text)] font-bold">${avgScore} pts</span></p>
+                <p>💡 Reveals used: <span class="text-[var(--text)] font-bold">${lettersRevealedTotal} letters, ${wordsRevealedTotal} words</span></p>
+
+                <div class="pt-2">
+                    <p class="text-[var(--cyan)] uppercase text-xs tracking-wider mb-1">By Difficulty</p>
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="text-[var(--muted)]">
+                                <th class="pb-1 pr-3 font-normal">Diff.</th>
+                                <th class="pb-1 pr-3 font-normal text-center">Played</th>
+                                <th class="pb-1 pr-3 font-normal text-center">Completed</th>
+                                <th class="pb-1 pr-3 font-normal text-center">Avg Score</th>
+                                <th class="pb-1 font-normal text-center">Total Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>${diffRows || `<tr><td colspan="5" class="py-2 text-center text-[var(--muted)]">No games yet</td></tr>`}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function closeStatsModal() { document.getElementById('stats-modal').classList.add('hidden'); }
+
+        function revealAll() {
+            if (!confirm('Are you sure you want to reveal the entire puzzle?')) return;
+
+            // Count words that still have at least one unresolved cell, before we reveal everything —
+            // each one adds a visible time penalty, same rate as an individual Reveal Word.
+            let unresolvedWords = 0;
+            currentBoardWords.forEach(w => {
+                let wordResolved = true;
+                for (let i = 0; i < w.word.length; i++) {
+                    let r = w.dir === 'H' ? w.row : w.row + i;
+                    let c = w.dir === 'H' ? w.col + i : w.col;
+                    let cell = document.getElementById(`cell-${r}-${c}`);
+                    if (!cell || cell.dataset.resolved !== 'true') { wordResolved = false; break; }
+                }
+                if (!wordResolved) unresolvedWords++;
+            });
+
+            const cells = document.querySelectorAll('.crossword-cell');
+            cells.forEach(cell => {
+                cell.innerText = cell.dataset.correct;
+                cell.dataset.resolved = 'true';
+                cell.parentElement.className = cell.parentElement.className.replace(/cell-default|cell-correct|cell-incorrect|highlight-word/g, '').trim() + ' cell-correct';
+            });
+
+            wordsRevealedCount += unresolvedWords;
+            revealTimePenaltySeconds += WORD_REVEAL_TIME_PENALTY * unresolvedWords;
+            updateTimePenaltyDisplay(true);
+            updateProgressDisplay();
+
+            stopTimer();
+            currentScore = 0;
+            updateScoreDisplay(true);
+            setStatus(`Puzzle revealed (${unresolvedWords} word${unresolvedWords === 1 ? '' : 's'} force-completed, +${WORD_REVEAL_TIME_PENALTY * unresolvedWords}s time penalty).`, 'error');
+            if (currentUser) recordGameSession(false, true);
+        }
+
+        function checkAndAutoSwitchDirection(r, c) {
+            let nextR = r, nextC = c;
+            if (typingDirection === 'H') nextC++; else nextR++;
+            let nextCell = document.getElementById(`cell-${nextR}-${nextC}`);
+            if (!nextCell || nextCell.contentEditable !== 'true') {
+                let altR = r, altC = c;
+                if (typingDirection === 'H') altR++; else altC++;
+                let altCell = document.getElementById(`cell-${altR}-${altC}`);
+                if (altCell && altCell.contentEditable === 'true') {
+                    typingDirection = (typingDirection === 'H') ? 'V' : 'H';
+                    updateDirectionIndicator();
+                }
+            }
+        }
+
+        function handleKeydown(e) {
+            let r = parseInt(e.target.dataset.row), c = parseInt(e.target.dataset.col);
+            let nextR = r, nextC = c;
+            const parent = e.target.parentElement;
+
+            if (e.key === ' ') {
+                typingDirection = (typingDirection === 'H') ? 'V' : 'H';
+                updateDirectionIndicator();
+                e.preventDefault();
+                return;
+            }
+
+            if (e.key === 'ArrowRight') { nextC++; typingDirection = 'H'; updateDirectionIndicator(); }
+            else if (e.key === 'ArrowLeft') { nextC--; typingDirection = 'H'; updateDirectionIndicator(); }
+            else if (e.key === 'ArrowDown') { nextR++; typingDirection = 'V'; updateDirectionIndicator(); }
+            else if (e.key === 'ArrowUp') { nextR--; typingDirection = 'V'; updateDirectionIndicator(); }
+            else if (e.key === 'Backspace') {
+                e.target.innerText = '';
+                parent.className = parent.className.replace(/cell-correct|cell-incorrect|cell-default/g, '').trim() + ' cell-default';
+                if (typingDirection === 'H') nextC--; else nextR--;
+                focusCell(nextR, nextC);
+                e.preventDefault(); return;
+            }
+            else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
+                const typedChar = e.key.toUpperCase();
+                e.target.innerText = typedChar;
+                parent.className = parent.className.replace(/cell-correct|cell-incorrect|cell-default/g, '').trim();
+                if (e.target.dataset.resolved === 'true' && typedChar === e.target.dataset.correct) {
+                    parent.classList.add('cell-correct');
+                } else {
+                    parent.classList.add('cell-default');
+                }
+                checkAndAutoSwitchDirection(r, c);
+                if (typingDirection === 'H') nextC++; else nextR++;
+                setTimeout(() => focusCell(nextR, nextC), 10);
+                e.preventDefault(); return;
+            } else { e.preventDefault(); return; }
+
+            focusCell(nextR, nextC);
+            e.preventDefault();
+        }
+
+        function focusCell(r, c) {
+            const next = document.getElementById(`cell-${r}-${c}`);
+            if (next && next.contentEditable === 'true') next.focus();
+        }
+
+        function clearWord(startRow, startCol, dir, length) {
+            for (let i = 0; i < length; i++) {
+                let r = dir === 'H' ? startRow : startRow + i;
+                let c = dir === 'H' ? startCol + i : startCol;
+                let cell = document.getElementById(`cell-${r}-${c}`);
+                if (cell) {
+                    cell.innerText = '';
+                    cell.parentElement.className = cell.parentElement.className.replace(/cell-correct|cell-incorrect|cell-default/g, '').trim() + ' cell-default';
+                }
+            }
+        }
+
+        function clearWordWithConfirm(startRow, startCol, dir, length) {
+            let allResolved = true;
+            for (let i = 0; i < length; i++) {
+                let r = dir === 'H' ? startRow : startRow + i;
+                let c = dir === 'H' ? startCol + i : startCol;
+                let cell = document.getElementById(`cell-${r}-${c}`);
+                if (!cell || cell.dataset.resolved !== 'true') { allResolved = false; break; }
+            }
+            if (allResolved && !confirm('This word is already marked as correct. Clear it anyway?')) {
+                return;
+            }
+            clearWord(startRow, startCol, dir, length);
+            updateProgressDisplay();
+        }
+
+        function showDefinition(def, wordId) {
+            document.getElementById('def-text').textContent = def;
+            document.getElementById('def-modal').classList.remove('hidden');
+
+            if (wordId !== undefined && !viewedDefinitions.has(wordId)) {
+                viewedDefinitions.add(wordId);
+                manualPenalties += 5;
+                recalcScore(true);
+                setStatus('Dictionary definition viewed (-5 pts, first look only).', 'info');
+            }
+        }
+        function closeModal() { document.getElementById('def-modal').classList.add('hidden'); }
+
+        function highlightWord(startRow, startCol, dir, length) {
+            clearHighlight();
+            typingDirection = dir;
+            updateDirectionIndicator();
+            for (let i = 0; i < length; i++) {
+                let r = dir === 'H' ? startRow : startRow + i;
+                let c = dir === 'H' ? startCol + i : startCol;
+                let wrapper = document.getElementById(`wrapper-${r}-${c}`);
+                if (wrapper) { wrapper.classList.add('highlight-word'); currentHighlight.push(`wrapper-${r}-${c}`); }
+            }
+            focusCell(startRow, startCol);
+        }
+
+        function clearHighlight() {
+            currentHighlight.forEach(id => {
+                let el = document.getElementById(id);
+                if (el) el.classList.remove('highlight-word');
+            });
+            currentHighlight = [];
+        }
+
+        initAuth();
+    </script>
+</body>
+</html>
