@@ -619,7 +619,9 @@
         // If you land on a different subdomain scheme, this is the only line to change.
         const API_BASE = (['localhost', '127.0.0.1'].includes(window.location.hostname))
             ? 'http://localhost:5000'
-            : 'https://api.mas-miami.com';
+            : (window.location.hostname === 'mas-miami-crossword.onrender.com'
+                ? 'https://mas-miami-api.onrender.com'
+                : 'https://api.mas-miami.com');
 
         let currentUser = null;
         let authMode = 'login'; // 'login', 'register', 'forgot'
