@@ -47,6 +47,18 @@
             --font-display: 'Fraunces', Georgia, serif;
             --font-body: 'Inter', system-ui, -apple-system, sans-serif;
             --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+            /* Fixed, square grid cells — width and height always derive from the SAME value,
+               so cells can never deform independently of one another on resize. If a puzzle's
+               column count × this size exceeds the available width, #grid-container scrolls
+               horizontally instead of shrinking cells below a legible size. */
+            --cell-size: 30px;
+        }
+        @media (min-width: 480px) {
+            :root { --cell-size: 34px; }
+        }
+        @media (min-width: 768px) {
+            :root { --cell-size: 40px; }
         }
 
         * { box-sizing: border-box; }
@@ -302,7 +314,12 @@
         }
         
         .cell-block { background: var(--board); }
-        .cell-wrapper { border: 1px solid transparent; transition: all 0.15s ease; }
+        .cell-wrapper {
+            width: var(--cell-size);
+            aspect-ratio: 1 / 1;
+            border: 1px solid transparent;
+            transition: all 0.15s ease;
+        }
         
         .cell-default { background: var(--paper); color: var(--paper-ink); border-color: rgba(17, 20, 28, 0.12); }
         .cell-correct { background: #C4F4D5; color: #0A3C20; border-color: rgba(10, 60, 32, 0.2); }
@@ -323,6 +340,11 @@
             max-height: 400px;
             overflow-y: auto;
             overflow-x: hidden;
+        }
+        @media (min-width: 1024px) {
+            .clues-panel {
+                max-height: 75vh;
+            }
         }
         .clue-heading {
             font-family: var(--font-mono);
@@ -377,9 +399,9 @@
 </head>
 <body class="min-h-screen flex flex-col items-center py-10 px-4 relative">
 
-    <div class="max-w-6xl w-full page-card p-6 sm:p-8 rounded-2xl flex flex-col items-center">
+    <div class="max-w-7xl w-full page-card p-6 sm:p-8 rounded-2xl flex flex-col items-center">
 
-        <!-- User / Auth Header Bar -->
+        <!-- User / Auth Header Bar — account-level actions only -->
         <div class="w-full flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-[var(--border)] font-mono text-xs">
             <div id="user-status-display" class="text-[var(--muted)]">
                 Guest Mode (Temporary Session)
@@ -387,7 +409,6 @@
             <div class="flex items-center gap-2">
                 <button id="auth-btn" onclick="openAuthModal()" class="btn-secondary py-1 px-3 text-xs">🔑 Login / Register</button>
                 <button id="stats-btn" onclick="openStatsModal()" class="btn-secondary py-1 px-3 text-xs hidden">📊 Stats</button>
-                <button id="pause-btn" onclick="pauseGame()" class="btn-secondary py-1 px-3 text-xs hidden text-[var(--amber)] border-[rgba(242,181,68,0.3)]">⏸️ Pause</button>
                 <button id="logout-btn" onclick="logoutUser()" class="btn-secondary py-1 px-3 text-xs hidden btn-danger">Logout</button>
             </div>
         </div>
@@ -421,8 +442,12 @@
             </div>
         </div>
 
-        <!-- Action / Helper & Evaluation Toolbar -->
-        <div class="mb-6 w-full max-w-3xl flex flex-wrap items-center justify-center gap-3">
+        <!-- Game Controls: Pause + Verify/Assist/GiveUp — only visible once a puzzle is active -->
+        <div id="game-controls" class="hidden mb-6 w-full max-w-3xl flex flex-wrap items-center justify-center gap-3">
+            <button id="pause-btn" onclick="pauseGame()" class="btn-secondary text-[var(--amber)] border-[rgba(242,181,68,0.3)]">
+                ⏸️ Pause
+            </button>
+            <span class="toolbar-divider hidden sm:inline-block" aria-hidden="true"></span>
             <div class="btn-cluster" role="group" aria-label="Verify your answers">
                 <button onclick="checkWord()" class="btn-secondary btn-verify">
                     ✔️ Check Word
@@ -479,8 +504,8 @@
         </div>
 
         <!-- Vertical Layout Container -->
-        <div class="flex flex-col gap-6 items-center w-full mb-8">
-            <div class="w-full flex justify-center mb-2">
+        <div class="flex flex-col lg:flex-row gap-6 w-full mb-8">
+            <div class="w-full lg:w-auto flex justify-center lg:justify-start">
                 <div id="grid-container" class="w-full flex items-center justify-center text-ink-dim py-16 border border-border rounded-xl bg-surface-3">
                     <div class="text-center">
                         <div class="text-4xl mb-3">🧩</div>
@@ -490,9 +515,9 @@
                 </div>
             </div>
 
-            <div class="w-full max-w-4xl">
+            <div id="clues-container" class="hidden w-full lg:flex-1 lg:min-w-[280px]">
                 <div class="clues-panel w-full p-5 sm:p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-8">
                         <div>
                             <h2 class="clue-heading">&#8594; Across</h2>
                             <ul id="clues-across" class="space-y-2"></ul>
@@ -685,20 +710,17 @@
             const userDisplay = document.getElementById('user-status-display');
             const authBtn = document.getElementById('auth-btn');
             const statsBtn = document.getElementById('stats-btn');
-            const pauseBtn = document.getElementById('pause-btn');
             const logoutBtn = document.getElementById('logout-btn');
 
             if (currentUser) {
                 userDisplay.textContent = `👤 ${currentUser.email}`;
                 authBtn.classList.add('hidden');
                 statsBtn.classList.remove('hidden');
-                pauseBtn.classList.remove('hidden');
                 logoutBtn.classList.remove('hidden');
             } else {
                 userDisplay.textContent = `Guest Mode (Temporary Session)`;
                 authBtn.classList.remove('hidden');
                 statsBtn.classList.add('hidden');
-                pauseBtn.classList.remove('hidden'); // Enable pause button in guest mode
                 logoutBtn.classList.add('hidden');
             }
         }
@@ -836,6 +858,16 @@
             const status = document.getElementById('status');
             status.textContent = text;
             status.className = `status-banner status-${type} flex-1`;
+        }
+
+        // Groups Pause/Check/Reveal/Give-Up and the Across/Down clue panel — these only make
+        // sense while a puzzle is on screen, so they're hidden entirely otherwise (previously
+        // they were always visible/clickable even with nothing to act on).
+        function setActiveGameUIVisible(visible) {
+            const gameControls = document.getElementById('game-controls');
+            const cluesContainer = document.getElementById('clues-container');
+            if (gameControls) gameControls.classList.toggle('hidden', !visible);
+            if (cluesContainer) cluesContainer.classList.toggle('hidden', !visible);
         }
 
         function updateDirectionIndicator() {
@@ -1091,6 +1123,7 @@
             document.getElementById('clues-across').innerHTML = '';
             document.getElementById('clues-down').innerHTML = '';
             document.getElementById('game-hud').classList.add('hidden');
+            setActiveGameUIVisible(false);
             setStatus('Game saved successfully.', 'info');
         }
 
@@ -1271,6 +1304,7 @@
 
             stopTimer();
             document.getElementById('game-hud').classList.add('hidden');
+            setActiveGameUIVisible(false);
 
             container.innerHTML = '';
             container.className = 'grid gap-[1px] overflow-auto max-w-full mb-8 rounded-xl';
@@ -1350,12 +1384,12 @@
                     acrossWords.forEach(w => renderClue(w, cluesAcross));
                     downWords.forEach(w => renderClue(w, cluesDown));
 
-                    container.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+                    container.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
 
                     grid.forEach((row, rIdx) => {
                         row.forEach((cell, cIdx) => {
                             const div = document.createElement('div');
-                            div.className = 'cell-wrapper w-8 h-8 sm:w-10 sm:h-10 relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
+                            div.className = 'cell-wrapper relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
 
                             if (cell === '.') {
                                 div.classList.add('cell-block');
@@ -1389,6 +1423,7 @@
                     });
 
                     setStatus(`Board ready — ${data.count} new words placed.`, 'success');
+                    setActiveGameUIVisible(true);
                     startTimer(false);
                     updateDirectionIndicator();
                 } else {
@@ -1415,6 +1450,7 @@
         function renderResumedBoard(gd) {
             stopTimer();
             document.getElementById('game-hud').classList.add('hidden');
+            setActiveGameUIVisible(false);
 
             const container = document.getElementById('grid-container');
             const cluesAcross = document.getElementById('clues-across');
@@ -1478,12 +1514,12 @@
             acrossWords.forEach(w => renderClue(w, cluesAcross));
             downWords.forEach(w => renderClue(w, cluesDown));
 
-            container.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            container.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
 
             grid.forEach((row, rIdx) => {
                 row.forEach((cell, cIdx) => {
                     const div = document.createElement('div');
-                    div.className = 'cell-wrapper w-8 h-8 sm:w-10 sm:h-10 relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
+                    div.className = 'cell-wrapper relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
 
                     if (cell === '.') {
                         div.classList.add('cell-block');
@@ -1541,6 +1577,7 @@
             discardActiveGame();
             boardDirty = false;
             setStatus(`Game resumed successfully.`, 'success');
+            setActiveGameUIVisible(true);
             startTimer(true); // <--- Continuar temporizador conservando tiempo transcurrido y puntos
             updateDirectionIndicator();
         }
