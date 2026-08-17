@@ -653,7 +653,7 @@
     <div id="stats-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
         <div class="bg-[var(--panel)] border border-[var(--border)] rounded-xl max-w-lg w-full p-6 shadow-2xl relative">
             <button onclick="closeStatsModal()" class="absolute top-3 right-3 text-slate-400 hover:text-[var(--cyan)] font-bold text-lg">&times;</button>
-            <h3 class="font-display text-xl text-[var(--text)] mb-4">📊 Career Stats</h3>
+            <h3 id="stats-modal-title" class="font-display text-xl text-[var(--text)] mb-4">📊 Career Stats</h3>
             <div id="stats-content" class="space-y-3 font-mono text-sm text-[var(--muted)]">
                 Calculating stats...
             </div>
@@ -734,9 +734,10 @@
         // --- Autosave (fixes: refresh mid-game losing progress) ---
         // Ticks every 20s but only actually persists if boardDirty is true —
         // avoids redundant writes when nothing changed since the last save.
-        const AUTOSAVE_INTERVAL_MS = 20000;
+        const AUTOSAVE_INTERVAL_MS = 10000;
         const GUEST_SAVE_KEY = 'crossword_guest_active_game';
         const GUEST_SAVE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h, per product decision
+        const GUEST_STATS_KEY = 'crossword_guest_daily_stats'; // resets each calendar day, never synced to an account
         let autosaveInterval = null;
         let boardDirty = false;
 
@@ -764,15 +765,15 @@
             const statsBtn = document.getElementById('stats-btn');
             const logoutBtn = document.getElementById('logout-btn');
 
+            statsBtn.classList.remove('hidden'); // available to both guests and logged-in users now
+
             if (currentUser) {
                 userDisplay.textContent = `👤 ${currentUser.email}`;
                 authBtn.classList.add('hidden');
-                statsBtn.classList.remove('hidden');
                 logoutBtn.classList.remove('hidden');
             } else {
                 userDisplay.textContent = `Guest Mode (Temporary Session)`;
                 authBtn.classList.remove('hidden');
-                statsBtn.classList.add('hidden');
                 logoutBtn.classList.add('hidden');
             }
         }
@@ -1248,6 +1249,38 @@
             }
         }
 
+        // Guest equivalent of a game_sessions row insert — same field shape as the Supabase
+        // table (topic, difficulty, duration_seconds, final_score, completed, gave_up,
+        // letters_revealed, words_revealed) so the stats modal can render both the same way.
+        // Tagged with today's date string; getGuestStatsForToday() drops anything from a
+        // previous day, matching the "today only, never carries to next session" spec.
+        function recordGuestStatEntry(entry) {
+            let entries = [];
+            try {
+                entries = JSON.parse(localStorage.getItem(GUEST_STATS_KEY) || '[]');
+            } catch (e) {
+                entries = [];
+            }
+            const today = new Date().toDateString();
+            entries = entries.filter(e => e.dateStr === today);
+            entries.push({ ...entry, dateStr: today });
+            try {
+                localStorage.setItem(GUEST_STATS_KEY, JSON.stringify(entries));
+            } catch (e) {
+                console.error('Could not record guest stat entry:', e);
+            }
+        }
+
+        function getGuestStatsForToday() {
+            let entries = [];
+            try {
+                entries = JSON.parse(localStorage.getItem(GUEST_STATS_KEY) || '[]');
+            } catch (e) {
+                entries = [];
+            }
+            const today = new Date().toDateString();
+            return entries.filter(e => e.dateStr === today);
+        }
         async function loadActiveGame() {
             document.getElementById('resume-prompt-modal').classList.add('hidden');
             if (currentUser) {
@@ -1829,33 +1862,46 @@
         }
 
         async function recordGameSession(completed, gaveUp) {
+            const topic = document.getElementById('topic-select').value;
+            const difficulty = document.getElementById('difficulty-select').value;
+            const sessionData = {
+                topic, difficulty,
+                word_count: currentBoardWords.length,
+                duration_seconds: secondsElapsed,
+                time_penalty_seconds: revealTimePenaltySeconds,
+                letters_revealed: lettersRevealedCount,
+                words_revealed: wordsRevealedCount,
+                completed, gave_up: gaveUp,
+                final_score: currentScore
+            };
             if (currentUser) {
-                const topic = document.getElementById('topic-select').value;
-                const difficulty = document.getElementById('difficulty-select').value;
                 await supabaseClient.from('game_sessions').insert({
                     user_id: currentUser.id,
-                    topic, difficulty,
-                    word_count: currentBoardWords.length,
-                    duration_seconds: secondsElapsed,
-                    time_penalty_seconds: revealTimePenaltySeconds,
-                    letters_revealed: lettersRevealedCount,
-                    words_revealed: wordsRevealedCount,
-                    completed, gave_up: gaveUp,
-                    final_score: currentScore
+                    ...sessionData
                 });
+            } else {
+                recordGuestStatEntry(sessionData);
             }
             await discardActiveGame();
         }
 
         async function openStatsModal() {
-            if (!currentUser) return;
             const modal = document.getElementById('stats-modal');
             const content = document.getElementById('stats-content');
+            const titleEl = document.getElementById('stats-modal-title');
             modal.classList.remove('hidden');
             content.textContent = "Calculating stats...";
 
-            const { data, error } = await supabaseClient.from('game_sessions').select('*').eq('user_id', currentUser.id);
-            if (error || !data) { content.textContent = "Error loading stats."; return; }
+            let data;
+            if (currentUser) {
+                if (titleEl) titleEl.textContent = '📊 Career Stats';
+                const result = await supabaseClient.from('game_sessions').select('*').eq('user_id', currentUser.id);
+                if (result.error || !result.data) { content.textContent = "Error loading stats."; return; }
+                data = result.data;
+            } else {
+                if (titleEl) titleEl.textContent = "📊 Today's Stats (Guest)";
+                data = getGuestStatsForToday();
+            }
 
             const totalPlayed = data.length;
             const completed = data.filter(d => d.completed).length;
@@ -1892,13 +1938,18 @@
                     </tr>`;
             }).join('');
 
+            const guestNote = !currentUser
+                ? `<p class="text-xs text-[var(--muted)] italic pt-1">Guest stats reset daily and aren't saved to an account. <a href="#" onclick="closeStatsModal(); openAuthModal(); return false;" class="text-[var(--cyan)] underline">Register</a> to keep your history.</p>`
+                : '';
+
             content.innerHTML = `
                 <p>🧩 Total games played: <span class="text-[var(--text)] font-bold">${totalPlayed}</span></p>
                 <p>✅ Completed: <span class="text-[var(--text)] font-bold">${completed} (${ratio}%)</span></p>
                 <p>⏱️ Total time played: <span class="text-[var(--text)] font-bold">${Math.floor(totalTime / 60)}m ${totalTime % 60}s</span></p>
-                <p>🏆 Total Score (career XP): <span class="text-[var(--text)] font-bold">${totalScoreSum} pts</span></p>
+                <p>🏆 Total Score${currentUser ? ' (career XP)' : ''}: <span class="text-[var(--text)] font-bold">${totalScoreSum} pts</span></p>
                 <p>⭐ Average Score (completed games): <span class="text-[var(--text)] font-bold">${avgScore} pts</span></p>
                 <p>💡 Reveals used: <span class="text-[var(--text)] font-bold">${lettersRevealedTotal} letters, ${wordsRevealedTotal} words</span></p>
+                ${guestNote}
 
                 <div class="pt-2">
                     <p class="text-[var(--cyan)] uppercase text-xs tracking-wider mb-1">By Difficulty</p>
@@ -2088,6 +2139,32 @@
             });
             currentHighlight = [];
         }
+
+        // Fixes: refreshing/closing the browser between periodic autosave ticks could lose
+        // progress. visibilitychange fires reliably (including on mobile, unlike beforeunload)
+        // the moment the tab is hidden — whether from a refresh, a tab switch, or closing —
+        // so we force an immediate save right then instead of waiting for the next 10s tick.
+        function forceSaveIfActive() {
+            if (!isGameActive && !isPaused) return;
+            if (currentUser) {
+                saveActiveGameToDB();
+            } else {
+                saveActiveGameToLocalStorage();
+            }
+            boardDirty = false;
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                forceSaveIfActive();
+            }
+        });
+
+        // Best-effort secondary trigger — not all browsers guarantee async work completes
+        // here, but it costs nothing to also try (localStorage writes for guests are
+        // synchronous and always land; the Supabase write for logged-in users is a bonus
+        // attempt on top of the visibilitychange save, which already covers the same moment).
+        window.addEventListener('beforeunload', forceSaveIfActive);
 
         initAuth();
     </script>
