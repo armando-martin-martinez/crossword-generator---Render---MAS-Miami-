@@ -368,6 +368,7 @@
         .cell-block { background: var(--board); }
         .cell-wrapper {
             width: var(--cell-size);
+            height: var(--cell-size);
             aspect-ratio: 1 / 1;
             border: 1px solid transparent;
             transition: all 0.15s ease;
@@ -1500,6 +1501,7 @@
                                 inputArea.contentEditable = 'true';
 
                                 inputArea.addEventListener('keydown', handleKeydown);
+                                inputArea.addEventListener('input', (e) => handleCellInput(e.target));
                                 inputArea.addEventListener('focus', (e) => onCellFocus(e.target));
                                 div.appendChild(inputArea);
                             }
@@ -1630,6 +1632,7 @@
                         inputArea.contentEditable = 'true';
 
                         inputArea.addEventListener('keydown', handleKeydown);
+                        inputArea.addEventListener('input', (e) => handleCellInput(e.target));
                         inputArea.addEventListener('focus', (e) => onCellFocus(e.target));
                         div.appendChild(inputArea);
                     }
@@ -2070,6 +2073,36 @@
 
             focusCell(nextR, nextC);
             e.preventDefault();
+        }
+
+        // Fallback for mobile IME keyboards (notably Samsung/Android with predictive text)
+        // that don't reliably report a usable key on keydown — that branch above never
+        // fires there, so the browser's own contenteditable insertion runs uncontrolled and
+        // focus never advances, letting every subsequent keystroke stack into the same cell.
+        // On a keyboard where keydown DOES work, preventDefault() there already stops the
+        // browser's own insertion, so this input event simply never fires — safe to add
+        // without risking the working desktop/standard-keyboard path.
+        function handleCellInput(target) {
+            const val = target.textContent.replace(/[^a-zA-Z]/g, '');
+            if (val.length === 0) return; // deletion or non-letter input — nothing to normalize
+            const lastChar = val.slice(-1).toUpperCase();
+            const r = parseInt(target.dataset.row);
+            const c = parseInt(target.dataset.col);
+            target.textContent = lastChar;
+            target.dataset.filledBy = 'typed';
+            const parent = target.parentElement;
+            parent.className = parent.className.replace(/cell-correct|cell-incorrect|cell-default/g, '').trim();
+            if (target.dataset.resolved === 'true' && lastChar === target.dataset.correct) {
+                parent.classList.add('cell-correct');
+            } else {
+                parent.classList.add('cell-default');
+            }
+            boardDirty = true;
+            checkAndAutoSwitchDirection(r, c);
+            checkForAutoCompletion();
+            let nextR = r, nextC = c;
+            if (typingDirection === 'H') nextC++; else nextR++;
+            setTimeout(() => focusCell(nextR, nextC), 10);
         }
 
         function focusCell(r, c) {
