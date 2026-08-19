@@ -3,59 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Interactive Crossword — Free Online Puzzle Generator</title>
-    <meta name="description" content="Play free crossword puzzles generated instantly across Anatomy, Science, History, Math and more. Pick a topic and difficulty, then solve online — no download needed.">
-    <link rel="canonical" href="https://mas-miami.com/">
-    <meta name="robots" content="index, follow">
-
-    <!-- Open Graph (Facebook, WhatsApp, iMessage, LinkedIn, etc.) -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://mas-miami.com/">
-    <meta property="og:title" content="Interactive Crossword — Free Online Puzzle Generator">
-    <meta property="og:description" content="Play free crossword puzzles generated instantly across Anatomy, Science, History, Math and more. Pick a topic and difficulty, then solve online — no download needed.">
-    <meta property="og:image" content="https://mas-miami.com/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:site_name" content="MAS-Miami">
-    <meta property="og:locale" content="en_US">
-
-    <!-- Twitter / X Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Interactive Crossword — Free Online Puzzle Generator">
-    <meta name="twitter:description" content="Play free crossword puzzles generated instantly across Anatomy, Science, History, Math and more. Pick a topic and difficulty, then solve online.">
-    <meta name="twitter:image" content="https://mas-miami.com/og-image.png">
-
-    <!-- Structured data: tells Google what this actually is, in a format it can trust -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "Interactive Crossword",
-      "alternateName": "MAS-Miami Crossword",
-      "url": "https://mas-miami.com/",
-      "description": "Free online crossword puzzle generator with instantly generated puzzles across multiple topics and difficulty levels.",
-      "applicationCategory": "GameApplication",
-      "operatingSystem": "Any (Web Browser)",
-      "isAccessibleForFree": true,
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      "genre": ["Puzzle", "Word Game", "Crossword", "Trivia"],
-      "about": [
-        { "@type": "Thing", "name": "Anatomy" },
-        { "@type": "Thing", "name": "Science" },
-        { "@type": "Thing", "name": "History" },
-        { "@type": "Thing", "name": "Math" },
-        { "@type": "Thing", "name": "Healthcare" },
-        { "@type": "Thing", "name": "Technology" },
-        { "@type": "Thing", "name": "General Knowledge" }
-      ]
-    }
-    </script>
-
+    <title>Interactive Crossword</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -99,18 +47,6 @@
             --font-display: 'Fraunces', Georgia, serif;
             --font-body: 'Inter', system-ui, -apple-system, sans-serif;
             --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
-
-            /* Fixed, square grid cells — width and height always derive from the SAME value,
-               so cells can never deform independently of one another on resize. If a puzzle's
-               column count × this size exceeds the available width, #grid-container scrolls
-               horizontally instead of shrinking cells below a legible size. */
-            --cell-size: 30px;
-        }
-        @media (min-width: 480px) {
-            :root { --cell-size: 34px; }
-        }
-        @media (min-width: 768px) {
-            :root { --cell-size: 40px; }
         }
 
         * { box-sizing: border-box; }
@@ -162,14 +98,6 @@
             text-transform: uppercase;
             color: var(--amber);
             font-weight: 600;
-        }
-        .field-hint {
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            color: var(--muted);
-            min-height: 1.2em;
-            opacity: 0.85;
-            margin-top: 0.1rem;
         }
         select.control, input.control {
             appearance: none;
@@ -354,6 +282,37 @@
         button.btn-secondary.btn-assist { border-color: rgba(242, 181, 68, 0.35); color: var(--amber); }
         button.btn-secondary.btn-assist:hover { background: rgba(242, 181, 68, 0.08); border-color: var(--amber); }
 
+        .active-clue-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 0.65rem 1.1rem;
+            box-shadow: 0 8px 20px -10px rgba(0,0,0,0.5);
+        }
+        .active-clue-direction {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #0B1020;
+            background: var(--cyan);
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .active-clue-text {
+            font-family: var(--font-body);
+            font-size: 0.92rem;
+            color: var(--text);
+            font-weight: 500;
+            line-height: 1.3;
+        }
+
         #grid-container {
             background: var(--board);
             padding: 0.75rem;
@@ -366,13 +325,7 @@
         }
         
         .cell-block { background: var(--board); }
-        .cell-wrapper {
-            width: var(--cell-size);
-            height: var(--cell-size);
-            aspect-ratio: 1 / 1;
-            border: 1px solid transparent;
-            transition: all 0.15s ease;
-        }
+        .cell-wrapper { border: 1px solid transparent; transition: all 0.15s ease; }
         
         .cell-default { background: var(--paper); color: var(--paper-ink); border-color: rgba(17, 20, 28, 0.12); }
         .cell-correct { background: #C4F4D5; color: #0A3C20; border-color: rgba(10, 60, 32, 0.2); }
@@ -393,11 +346,6 @@
             max-height: 400px;
             overflow-y: auto;
             overflow-x: hidden;
-        }
-        @media (min-width: 1024px) {
-            .clues-panel {
-                max-height: 75vh;
-            }
         }
         .clue-heading {
             font-family: var(--font-mono);
@@ -450,29 +398,30 @@
         .clue-item:hover .clue-text { color: var(--text); }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center py-10 px-4 relative">
+<body class="min-h-screen flex flex-col items-center py-6 px-4 relative">
 
-    <div class="max-w-[1600px] w-full page-card p-6 sm:p-8 rounded-2xl flex flex-col items-center">
+    <div class="max-w-6xl w-full page-card p-6 sm:p-8 rounded-2xl flex flex-col items-center">
 
-        <!-- User / Auth Header Bar — account-level actions only -->
-        <div class="w-full flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-[var(--border)] font-mono text-xs">
+        <!-- User / Auth Header Bar -->
+        <div class="w-full flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-[var(--border)] font-mono text-xs">
             <div id="user-status-display" class="text-[var(--muted)]">
                 Guest Mode (Temporary Session)
             </div>
             <div class="flex items-center gap-2">
                 <button id="auth-btn" onclick="openAuthModal()" class="btn-secondary py-1 px-3 text-xs">🔑 Login / Register</button>
                 <button id="stats-btn" onclick="openStatsModal()" class="btn-secondary py-1 px-3 text-xs hidden">📊 Stats</button>
+                <button id="pause-btn" onclick="pauseGame()" class="btn-secondary py-1 px-3 text-xs hidden text-[var(--amber)] border-[rgba(242,181,68,0.3)]">⏸️ Pause</button>
                 <button id="logout-btn" onclick="logoutUser()" class="btn-secondary py-1 px-3 text-xs hidden btn-danger">Logout</button>
             </div>
         </div>
 
-        <header class="flex flex-col items-center text-center mb-10 gap-3">
+        <header class="flex flex-col items-center text-center mb-6 gap-3">
             <h1 class="masthead-title">Interactive <span class="accent-word">Crossword</span></h1>
             <p class="masthead-subtitle">Create a puzzle. Solve it. Learn.</p>
             <div class="masthead-rule"><span></span><span class="rule-dot"></span><span></span></div>
         </header>
 
-        <div class="toolbar-panel w-full max-w-3xl p-5 sm:p-6 mb-6">
+        <div class="toolbar-panel w-full max-w-3xl p-5 sm:p-6 mb-4">
             <div class="toolbar">
                 <div class="field-group">
                     <label for="topic-select" class="field-label">Topic</label>
@@ -482,11 +431,10 @@
                 <div class="field-group">
                     <label for="difficulty-select" class="field-label">Difficulty</label>
                     <select id="difficulty-select" onchange="onDifficultyChange()" class="control">
-                        <option value="easy">Easy (20 words)</option>
-                        <option value="medium" selected>Medium (30 words)</option>
-                        <option value="hard">Hard (40 words)</option>
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
                     </select>
-                    <p id="difficulty-hint" class="field-hint"></p>
                 </div>
 
                 <button id="generate-btn" onclick="cargarCrucigrama()" class="btn-primary">
@@ -495,12 +443,8 @@
             </div>
         </div>
 
-        <!-- Game Controls: Pause + Verify/Assist/GiveUp — only visible once a puzzle is active -->
-        <div id="game-controls" class="hidden mb-6 w-full max-w-3xl flex flex-wrap items-center justify-center gap-3">
-            <button id="pause-btn" onclick="pauseGame()" class="btn-secondary text-[var(--amber)] border-[rgba(242,181,68,0.3)]">
-                ⏸️ Pause
-            </button>
-            <span class="toolbar-divider hidden sm:inline-block" aria-hidden="true"></span>
+        <!-- Action / Helper & Evaluation Toolbar (crossword-only controls; hidden until a board exists) -->
+        <div id="action-toolbar" class="hidden mb-4 w-full max-w-3xl flex flex-wrap items-center justify-center gap-3">
             <div class="btn-cluster" role="group" aria-label="Verify your answers">
                 <button onclick="checkWord()" class="btn-secondary btn-verify">
                     ✔️ Check Word
@@ -518,14 +462,15 @@
                     🔍 Reveal Word
                 </button>
             </div>
-            <span class="toolbar-divider hidden sm:inline-block" aria-hidden="true"></span>
-            <button onclick="revealAll()" class="btn-secondary btn-danger">
-                🏳️ Give Up / Reveal All
-            </button>
         </div>
 
         <!-- Status & Game HUD Bar -->
-        <div class="w-full max-w-3xl flex flex-wrap items-stretch justify-between gap-4 mb-6">
+        <div class="w-full max-w-3xl flex flex-wrap items-stretch justify-between gap-3 mb-4">
+            <div id="give-up-wrap" class="hidden flex items-stretch">
+                <button onclick="revealAll()" class="btn-secondary btn-danger h-full flex items-center">
+                    🏳️ Give Up / Reveal All
+                </button>
+            </div>
             <div id="status" class="status-banner status-info flex-1" role="status" aria-live="polite">Welcome! Select a topic and hit generate.</div>
             <div id="game-hud" class="hud-card hidden">
                 <div class="hud-stat">
@@ -557,8 +502,12 @@
         </div>
 
         <!-- Vertical Layout Container -->
-        <div class="flex flex-col lg:flex-row lg:justify-center gap-6 w-full mb-8">
-            <div class="w-full lg:w-auto flex justify-center lg:justify-start">
+        <div class="flex flex-col gap-4 items-center w-full mb-6">
+            <div id="active-clue-bar" class="hidden active-clue-bar w-full max-w-3xl">
+                <span id="active-clue-direction" class="active-clue-direction">→ ACROSS</span>
+                <span id="active-clue-text" class="active-clue-text">Select a cell to see its clue.</span>
+            </div>
+            <div class="w-full flex justify-center mb-2">
                 <div id="grid-container" class="w-full flex items-center justify-center text-ink-dim py-16 border border-border rounded-xl bg-surface-3">
                     <div class="text-center">
                         <div class="text-4xl mb-3">🧩</div>
@@ -568,9 +517,9 @@
                 </div>
             </div>
 
-            <div id="clues-container" class="hidden w-full lg:flex-1 lg:min-w-[280px] lg:max-w-lg">
+            <div class="w-full max-w-4xl">
                 <div class="clues-panel w-full p-5 sm:p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
                             <h2 class="clue-heading">&#8594; Across</h2>
                             <ul id="clues-across" class="space-y-2"></ul>
@@ -654,7 +603,7 @@
     <div id="stats-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
         <div class="bg-[var(--panel)] border border-[var(--border)] rounded-xl max-w-lg w-full p-6 shadow-2xl relative">
             <button onclick="closeStatsModal()" class="absolute top-3 right-3 text-slate-400 hover:text-[var(--cyan)] font-bold text-lg">&times;</button>
-            <h3 id="stats-modal-title" class="font-display text-xl text-[var(--text)] mb-4">📊 Career Stats</h3>
+            <h3 class="font-display text-xl text-[var(--text)] mb-4">📊 Career Stats</h3>
             <div id="stats-content" class="space-y-3 font-mono text-sm text-[var(--muted)]">
                 Calculating stats...
             </div>
@@ -691,16 +640,6 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlycXRuY2Rjdmlqb2JyaGJ5aXV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzODc3ODAsImV4cCI6MjEwMTk2Mzc4MH0.5JcJzzewjjCbJ4rzkyjhexl7yBu55AmjcCNh37sHUt8';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // API BACKEND CONFIGURATION
-        // Auto-switches: same file works unchanged on your local NAS/PowerShell setup
-        // AND once deployed behind mas-miami.com — no manual toggling needed.
-        // If you land on a different subdomain scheme, this is the only line to change.
-        const API_BASE = (['localhost', '127.0.0.1'].includes(window.location.hostname))
-            ? 'http://localhost:5000'
-            : (window.location.hostname === 'mas-miami-crossword.onrender.com'
-                ? 'https://mas-miami-api.onrender.com'
-                : 'https://api.mas-miami.com');
-
         let currentUser = null;
         let authMode = 'login'; // 'login', 'register', 'forgot'
 
@@ -731,17 +670,6 @@
         let lastFocusedCell = null;
         let directionArrowEl = null;
         let viewedDefinitions = new Set();
-
-        // --- Autosave (fixes: refresh mid-game losing progress) ---
-        // Ticks every 20s but only actually persists if boardDirty is true —
-        // avoids redundant writes when nothing changed since the last save.
-        const AUTOSAVE_INTERVAL_MS = 10000;
-        const GUEST_SAVE_KEY = 'crossword_guest_active_game';
-        const GUEST_SAVE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h, per product decision
-        const GUEST_STATS_KEY = 'crossword_guest_daily_stats'; // resets each calendar day, never synced to an account
-        let autosaveInterval = null;
-        let boardDirty = false;
-
         let isGameActive = false;
         let isPaused = false;
         let playedWords = [];
@@ -755,7 +683,6 @@
                 playedWords = JSON.parse(localStorage.getItem(`crossword_played_words_${currentUser.id}`) || '[]');
             } else {
                 playedWords = JSON.parse(sessionStorage.getItem('crossword_played_words_guest') || '[]');
-                checkActiveGameInLocalStorage();
             }
             loadAvailability();
         }
@@ -764,17 +691,20 @@
             const userDisplay = document.getElementById('user-status-display');
             const authBtn = document.getElementById('auth-btn');
             const statsBtn = document.getElementById('stats-btn');
+            const pauseBtn = document.getElementById('pause-btn');
             const logoutBtn = document.getElementById('logout-btn');
-
-            statsBtn.classList.remove('hidden'); // available to both guests and logged-in users now
 
             if (currentUser) {
                 userDisplay.textContent = `👤 ${currentUser.email}`;
                 authBtn.classList.add('hidden');
+                statsBtn.classList.remove('hidden');
+                pauseBtn.classList.remove('hidden');
                 logoutBtn.classList.remove('hidden');
             } else {
                 userDisplay.textContent = `Guest Mode (Temporary Session)`;
                 authBtn.classList.remove('hidden');
+                statsBtn.classList.add('hidden');
+                pauseBtn.classList.remove('hidden'); // Enable pause button in guest mode
                 logoutBtn.classList.add('hidden');
             }
         }
@@ -914,16 +844,6 @@
             status.className = `status-banner status-${type} flex-1`;
         }
 
-        // Groups Pause/Check/Reveal/Give-Up and the Across/Down clue panel — these only make
-        // sense while a puzzle is on screen, so they're hidden entirely otherwise (previously
-        // they were always visible/clickable even with nothing to act on).
-        function setActiveGameUIVisible(visible) {
-            const gameControls = document.getElementById('game-controls');
-            const cluesContainer = document.getElementById('clues-container');
-            if (gameControls) gameControls.classList.toggle('hidden', !visible);
-            if (cluesContainer) cluesContainer.classList.toggle('hidden', !visible);
-        }
-
         function updateDirectionIndicator() {
             const el = document.getElementById('direction-value');
             if (el) {
@@ -934,6 +854,35 @@
                 const c = lastFocusedCell.dataset.col;
                 renderDirectionArrow(`wrapper-${r}-${c}`, typingDirection);
             }
+            updateActiveClueBar();
+        }
+
+        // Finds the word matching the currently focused cell + active typing direction, and shows
+        // its clue in the bar above the grid. On an intersection (a cell shared by an across and a
+        // down word), the clue shown follows typingDirection — same word the on-grid arrow points to.
+        function updateActiveClueBar() {
+            const dirEl = document.getElementById('active-clue-direction');
+            const textEl = document.getElementById('active-clue-text');
+            if (!dirEl || !textEl) return;
+
+            dirEl.textContent = typingDirection === 'H' ? '→ ACROSS' : '↓ DOWN';
+
+            if (!lastFocusedCell || !currentBoardWords.length) {
+                textEl.textContent = 'Select a cell to see its clue.';
+                return;
+            }
+
+            const r = parseInt(lastFocusedCell.dataset.row);
+            const c = parseInt(lastFocusedCell.dataset.col);
+
+            const activeWord = currentBoardWords.find(w => {
+                if (w.dir !== typingDirection) return false;
+                return w.dir === 'H'
+                    ? (r === w.row && c >= w.col && c < w.col + w.word.length)
+                    : (c === w.col && r >= w.row && r < w.row + w.word.length);
+            });
+
+            textEl.textContent = activeWord ? activeWord.clue : 'No clue available for this cell.';
         }
 
         function renderDirectionArrow(wrapperId, dir) {
@@ -1001,46 +950,6 @@
             return { seconds: 30, points: 2 }; // medium
         }
 
-        function isBoardComplete() {
-            const cells = document.querySelectorAll('.crossword-cell');
-            if (cells.length === 0) return false;
-            for (const cell of cells) {
-                if (cell.innerText.trim().toUpperCase() !== cell.dataset.correct) return false;
-            }
-            return true;
-        }
-
-        // Auto-detects a finished puzzle without requiring "Check All" — and without charging
-        // its per-cell penalty, since nothing was actually verified, just naturally completed.
-        //
-        // Completion credit requires at least one cell where the CURRENT correct letter was
-        // typed by the player (dataset.filledBy === 'typed'), not revealed. A board filled
-        // entirely via Reveal Letter/Reveal Word (never typing a single letter themselves)
-        // is functionally the same as a give-up — the app solved it, not the player — so it's
-        // recorded as such, even though every reveal action already paid its own point/time cost.
-        function checkForAutoCompletion() {
-            if (!isGameActive || isPaused) return;
-            if (!isBoardComplete()) return;
-
-            const solvedByPlayer = document.querySelectorAll('.crossword-cell[data-filled-by="typed"]').length > 0;
-            document.querySelectorAll('.crossword-cell').forEach(cell => {
-                cell.dataset.resolved = 'true';
-                const wrapper = cell.parentElement;
-                wrapper.className = wrapper.className.replace(/cell-default|cell-correct|cell-incorrect|highlight-word/g, '').trim() + ' cell-correct';
-            });
-            updateProgressDisplay();
-            stopTimer();
-            boardDirty = false;
-
-            if (solvedByPlayer) {
-                setStatus(`All answers correct in ${formatTime(secondsElapsed)}! Final Score: ${currentScore} pts 🎉`, 'success');
-                recordGameSession(true, false);
-            } else {
-                setStatus(`Puzzle filled in entirely through reveals — no personal completion credit this round.`, 'warning');
-                recordGameSession(false, true);
-            }
-        }
-
         function startTimer(resume = false) {
             stopTimer();
             if (!resume) {
@@ -1051,7 +960,6 @@
                 lettersRevealedCount = 0;
                 wordsRevealedCount = 0;
                 currentScore = BASE_SCORE;
-                boardDirty = false;
             }
             isGameActive = true;
             isPaused = false;
@@ -1061,6 +969,7 @@
             updateProgressDisplay();
             const hud = document.getElementById('game-hud');
             if (hud) hud.classList.remove('hidden');
+            setGameControlsVisible(true);
 
             timerInterval = setInterval(() => {
                 if (!isPaused && isGameActive) {
@@ -1079,8 +988,6 @@
                     updateTimerDisplay();
                 }
             }, 1000);
-
-            startAutosaveLoop();
         }
 
         function stopTimer() {
@@ -1089,30 +996,17 @@
                 timerInterval = null;
             }
             isGameActive = false;
-            stopAutosaveLoop();
         }
 
-        // Ticks every AUTOSAVE_INTERVAL_MS but only writes if something actually changed
-        // (boardDirty) since the last save — avoids redundant DB/localStorage writes.
-        // Runs regardless of isPaused, so a paused-but-unsaved board still gets covered.
-        function startAutosaveLoop() {
-            stopAutosaveLoop();
-            autosaveInterval = setInterval(async () => {
-                if (!boardDirty) return;
-                if (currentUser) {
-                    await saveActiveGameToDB();
-                } else {
-                    saveActiveGameToLocalStorage();
-                }
-                boardDirty = false;
-            }, AUTOSAVE_INTERVAL_MS);
-        }
-
-        function stopAutosaveLoop() {
-            if (autosaveInterval) {
-                clearInterval(autosaveInterval);
-                autosaveInterval = null;
-            }
+        // The action toolbar, the Give Up button, and the Active Clue bar are all crossword-only
+        // controls — they should only ever be visible while a board is actually on screen.
+        function setGameControlsVisible(visible) {
+            const actionToolbar = document.getElementById('action-toolbar');
+            const giveUpWrap = document.getElementById('give-up-wrap');
+            const activeClueBar = document.getElementById('active-clue-bar');
+            [actionToolbar, giveUpWrap, activeClueBar].forEach(el => {
+                if (el) el.classList.toggle('hidden', !visible);
+            });
         }
 
         function formatTime(totalSeconds) {
@@ -1136,14 +1030,12 @@
             const pauseSubtext = document.getElementById('pause-subtext');
 
             if (!currentUser) {
-                // Guest mode: no explicit "Save & Exit" workflow, but progress is still
-                // autosaved locally for resilience (refresh/crash/connectivity) — checkpoint now too.
+                // Guest mode: Explicitly hide Save & Exit
                 if (saveExitBtn) {
                     saveExitBtn.classList.add('hidden');
                     saveExitBtn.style.display = 'none';
                 }
-                if (pauseSubtext) pauseSubtext.textContent = 'Guest progress is saved on this device for up to 24h, but won\'t sync to an account.';
-                saveActiveGameToLocalStorage();
+                if (pauseSubtext) pauseSubtext.textContent = 'Guest sessions are temporary and cannot be saved.';
             } else {
                 // Logged in mode: Show Save & Exit
                 if (saveExitBtn) {
@@ -1168,21 +1060,20 @@
             if (currentUser) await saveActiveGameToDB();
             stopTimer();
             document.getElementById('pause-modal').classList.add('hidden');
+            document.getElementById('game-hud').classList.add('hidden');
+            setGameControlsVisible(false);
             document.getElementById('grid-container').innerHTML = `
                 <div class="text-center py-8">
                     <div class="text-4xl mb-3">💾</div>
                     <p class="text-text font-medium text-lg mb-4">Game saved and paused.</p>
                     <button onclick="loadActiveGame()" class="btn-primary">▶️ Resume Game</button>
                 </div>`;
-            document.getElementById('clues-across').innerHTML = '';
-            document.getElementById('clues-down').innerHTML = '';
-            document.getElementById('game-hud').classList.add('hidden');
-            setActiveGameUIVisible(false);
             setStatus('Game saved successfully.', 'info');
         }
 
-        function buildGameSnapshot() {
-            return {
+        async function saveActiveGameToDB() {
+            if (!currentUser) return;
+            const gridData = {
                 secondsElapsed, manualPenalties, timeDecayPoints, revealTimePenaltySeconds,
                 lettersRevealedCount, wordsRevealedCount, currentScore,
                 viewedDefinitions: Array.from(viewedDefinitions),
@@ -1190,15 +1081,9 @@
                 topic: document.getElementById('topic-select').value,
                 difficulty: document.getElementById('difficulty-select').value,
                 cells: Array.from(document.querySelectorAll('.crossword-cell')).map(c => ({
-                    row: c.dataset.row, col: c.dataset.col, val: c.innerText,
-                    resolved: c.dataset.resolved, filledBy: c.dataset.filledBy || ''
+                    row: c.dataset.row, col: c.dataset.col, val: c.innerText, resolved: c.dataset.resolved
                 }))
             };
-        }
-
-        async function saveActiveGameToDB() {
-            if (!currentUser) return;
-            const gridData = buildGameSnapshot();
             await supabaseClient.from('active_game_states').upsert({
                 user_id: currentUser.id,
                 game_data: gridData,
@@ -1206,92 +1091,19 @@
             });
         }
 
-        // Guest equivalent of saveActiveGameToDB — same snapshot shape, stored locally with a
-        // timestamp so it can expire after GUEST_SAVE_MAX_AGE_MS (product decision: 24h).
-        function saveActiveGameToLocalStorage() {
-            if (currentUser) return;
-            const gridData = buildGameSnapshot();
-            gridData.savedAt = Date.now();
-            try {
-                localStorage.setItem(GUEST_SAVE_KEY, JSON.stringify(gridData));
-            } catch (e) {
-                console.error('Could not autosave guest game:', e);
-            }
-        }
-
         async function checkActiveGameInDB() {
             if (!currentUser) return;
             const { data } = await supabaseClient.from('active_game_states').select('*').eq('user_id', currentUser.id).single();
             if (data && data.game_data) {
-                const textEl = document.getElementById('resume-prompt-text');
-                if (textEl) textEl.textContent = 'You have a paused crossword saved on your account. Would you like to resume it?';
                 document.getElementById('resume-prompt-modal').classList.remove('hidden');
             }
         }
 
-        // Guest equivalent of checkActiveGameInDB — silently expires (and discards) saves
-        // older than GUEST_SAVE_MAX_AGE_MS instead of ever offering to resume them.
-        function checkActiveGameInLocalStorage() {
-            if (currentUser) return;
-            const raw = localStorage.getItem(GUEST_SAVE_KEY);
-            if (!raw) return;
-            try {
-                const gd = JSON.parse(raw);
-                const ageMs = Date.now() - (gd.savedAt || 0);
-                if (ageMs > GUEST_SAVE_MAX_AGE_MS) {
-                    localStorage.removeItem(GUEST_SAVE_KEY);
-                    return;
-                }
-                const textEl = document.getElementById('resume-prompt-text');
-                if (textEl) textEl.textContent = 'You have an unfinished crossword saved on this device (guest sessions expire after 24h). Would you like to resume it?';
-                document.getElementById('resume-prompt-modal').classList.remove('hidden');
-            } catch (e) {
-                localStorage.removeItem(GUEST_SAVE_KEY);
-            }
-        }
-
-        // Guest equivalent of a game_sessions row insert — same field shape as the Supabase
-        // table (topic, difficulty, duration_seconds, final_score, completed, gave_up,
-        // letters_revealed, words_revealed) so the stats modal can render both the same way.
-        // Tagged with today's date string; getGuestStatsForToday() drops anything from a
-        // previous day, matching the "today only, never carries to next session" spec.
-        function recordGuestStatEntry(entry) {
-            let entries = [];
-            try {
-                entries = JSON.parse(localStorage.getItem(GUEST_STATS_KEY) || '[]');
-            } catch (e) {
-                entries = [];
-            }
-            const today = new Date().toDateString();
-            entries = entries.filter(e => e.dateStr === today);
-            entries.push({ ...entry, dateStr: today });
-            try {
-                localStorage.setItem(GUEST_STATS_KEY, JSON.stringify(entries));
-            } catch (e) {
-                console.error('Could not record guest stat entry:', e);
-            }
-        }
-
-        function getGuestStatsForToday() {
-            let entries = [];
-            try {
-                entries = JSON.parse(localStorage.getItem(GUEST_STATS_KEY) || '[]');
-            } catch (e) {
-                entries = [];
-            }
-            const today = new Date().toDateString();
-            return entries.filter(e => e.dateStr === today);
-        }
         async function loadActiveGame() {
             document.getElementById('resume-prompt-modal').classList.add('hidden');
-            if (currentUser) {
-                const { data } = await supabaseClient.from('active_game_states').select('*').eq('user_id', currentUser.id).single();
-                if (data && data.game_data) renderResumedBoard(data.game_data);
-            } else {
-                const raw = localStorage.getItem(GUEST_SAVE_KEY);
-                if (raw) {
-                    try { renderResumedBoard(JSON.parse(raw)); } catch (e) { localStorage.removeItem(GUEST_SAVE_KEY); }
-                }
+            const { data } = await supabaseClient.from('active_game_states').select('*').eq('user_id', currentUser.id).single();
+            if (data && data.game_data) {
+                renderResumedBoard(data.game_data);
             }
         }
 
@@ -1299,14 +1111,12 @@
             document.getElementById('resume-prompt-modal').classList.add('hidden');
             if (currentUser) {
                 await supabaseClient.from('active_game_states').delete().eq('user_id', currentUser.id);
-            } else {
-                localStorage.removeItem(GUEST_SAVE_KEY);
             }
         }
 
         async function loadAvailability() {
             try {
-                const response = await fetch(`${API_BASE}/api/available`);
+                const response = await fetch('http://localhost:5000/api/available');
                 const data = await response.json();
                 availabilityData = data.success ? data.availability : {};
                 
@@ -1327,19 +1137,14 @@
                 }
             } catch (error) {
                 console.error('API Error:', error);
-                setStatus('Could not load topics. If the backend just deployed or has been idle, it may be waking up — reload in ~30s.', 'error');
             }
             updateDifficultyOptions();
         }
 
         function onDifficultyChange() {
-            const topicSelect = document.getElementById('topic-select');
-            const difficultySelect = document.getElementById('difficulty-select');
-            if (!topicSelect.value) return;
-            const info = (availabilityData[topicSelect.value] || {})[difficultySelect.value];
-            document.getElementById('difficulty-hint').textContent = info
-                ? `${info.count} word${info.count === 1 ? '' : 's'} indexed for this combination.`
-                : 'No approved words yet for this combination.';
+            // Word-count hint intentionally removed from the UI (per design update).
+            // availabilityData is still consulted in updateDifficultyOptions() to
+            // enable/disable topic+difficulty combinations that lack enough words.
         }
 
         function updateDifficultyOptions() {
@@ -1379,18 +1184,9 @@
 
             if (document.getElementById('difficulty-select').selectedOptions[0].disabled) return;
 
-            // Fixes: generating over an in-progress/paused game silently discarded it, and could
-            // leave a stale saved-game row/localStorage entry that resurfaces on a later resume.
-            if (currentBoardWords.length > 0 && (isGameActive || isPaused)) {
-                if (!confirm('You have a puzzle in progress. Generating a new one will lose that progress. Continue?')) {
-                    return;
-                }
-                await discardActiveGame();
-            }
-
             stopTimer();
             document.getElementById('game-hud').classList.add('hidden');
-            setActiveGameUIVisible(false);
+            setGameControlsVisible(false);
 
             container.innerHTML = '';
             container.className = 'grid gap-[1px] overflow-auto max-w-full mb-8 rounded-xl';
@@ -1412,7 +1208,7 @@
                     difficulty: selectedDifficulty,
                     exclude: excludeStr
                 });
-                const response = await fetch(`${API_BASE}/api/generate?${params.toString()}`);
+                const response = await fetch(`http://localhost:5000/api/generate?${params.toString()}`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -1470,13 +1266,12 @@
                     acrossWords.forEach(w => renderClue(w, cluesAcross));
                     downWords.forEach(w => renderClue(w, cluesDown));
 
-                    container.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
-                    container.style.gridTemplateRows = `repeat(${grid.length}, var(--cell-size))`;
+                    container.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
 
                     grid.forEach((row, rIdx) => {
                         row.forEach((cell, cIdx) => {
                             const div = document.createElement('div');
-                            div.className = 'cell-wrapper relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
+                            div.className = 'cell-wrapper w-8 h-8 sm:w-10 sm:h-10 relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
 
                             if (cell === '.') {
                                 div.classList.add('cell-block');
@@ -1498,11 +1293,9 @@
                                 inputArea.dataset.col = cIdx;
                                 inputArea.dataset.correct = cell;
                                 inputArea.dataset.resolved = 'false';
-                                inputArea.dataset.filledBy = '';
                                 inputArea.contentEditable = 'true';
 
                                 inputArea.addEventListener('keydown', handleKeydown);
-                                inputArea.addEventListener('input', (e) => handleCellInput(e.target));
                                 inputArea.addEventListener('focus', (e) => onCellFocus(e.target));
                                 div.appendChild(inputArea);
                             }
@@ -1511,7 +1304,6 @@
                     });
 
                     setStatus(`Board ready — ${data.count} new words placed.`, 'success');
-                    setActiveGameUIVisible(true);
                     startTimer(false);
                     updateDirectionIndicator();
                 } else {
@@ -1529,7 +1321,7 @@
                     }
                 }
             } catch (error) {
-                setStatus('Could not reach the API. If this is local dev, make sure app.py is running. If this just deployed, the free-tier backend may be waking up — try again in a few seconds.', 'error');
+                setStatus('Could not reach the Flask API. Make sure app.py is running.', 'error');
             } finally {
                 generateBtn.disabled = false;
             }
@@ -1538,7 +1330,7 @@
         function renderResumedBoard(gd) {
             stopTimer();
             document.getElementById('game-hud').classList.add('hidden');
-            setActiveGameUIVisible(false);
+            setGameControlsVisible(false);
 
             const container = document.getElementById('grid-container');
             const cluesAcross = document.getElementById('clues-across');
@@ -1602,13 +1394,12 @@
             acrossWords.forEach(w => renderClue(w, cluesAcross));
             downWords.forEach(w => renderClue(w, cluesDown));
 
-            container.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
-            container.style.gridTemplateRows = `repeat(${grid.length}, var(--cell-size))`;
+            container.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
 
             grid.forEach((row, rIdx) => {
                 row.forEach((cell, cIdx) => {
                     const div = document.createElement('div');
-                    div.className = 'cell-wrapper relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
+                    div.className = 'cell-wrapper w-8 h-8 sm:w-10 sm:h-10 relative flex items-center justify-center font-bold text-base sm:text-lg transition-all select-none';
 
                     if (cell === '.') {
                         div.classList.add('cell-block');
@@ -1630,11 +1421,9 @@
                         inputArea.dataset.col = cIdx;
                         inputArea.dataset.correct = cell;
                         inputArea.dataset.resolved = 'false';
-                        inputArea.dataset.filledBy = '';
                         inputArea.contentEditable = 'true';
 
                         inputArea.addEventListener('keydown', handleKeydown);
-                        inputArea.addEventListener('input', (e) => handleCellInput(e.target));
                         inputArea.addEventListener('focus', (e) => onCellFocus(e.target));
                         div.appendChild(inputArea);
                     }
@@ -1656,7 +1445,6 @@
                 if (target && wrapper && sc.val) {
                     target.innerText = sc.val;
                     target.dataset.resolved = sc.resolved;
-                    target.dataset.filledBy = sc.filledBy || '';
                     if (sc.resolved === 'true') {
                         wrapper.classList.remove('cell-default');
                         wrapper.classList.add('cell-correct');
@@ -1665,9 +1453,7 @@
             });
 
             discardActiveGame();
-            boardDirty = false;
             setStatus(`Game resumed successfully.`, 'success');
-            setActiveGameUIVisible(true);
             startTimer(true); // <--- Continuar temporizador conservando tiempo transcurrido y puntos
             updateDirectionIndicator();
         }
@@ -1693,36 +1479,28 @@
         }
 
         function revealLetter() {
-            if (!isGameActive) { setStatus('This puzzle is already finished. Generate a new one to keep playing.', 'info'); return; }
             if (!lastFocusedCell) { setStatus('Click on a cell first to reveal its letter.', 'warning'); return; }
             if (lastFocusedCell.dataset.resolved === 'true') {
                 lastFocusedCell.innerText = lastFocusedCell.dataset.correct;
-                lastFocusedCell.dataset.filledBy = 'revealed';
                 lastFocusedCell.parentElement.className = lastFocusedCell.parentElement.className.replace(/cell-default|cell-incorrect/g, '').trim() + ' cell-correct';
-                boardDirty = true;
                 updateProgressDisplay();
                 setStatus('Restored resolved letter (no penalty).', 'info');
-                checkForAutoCompletion();
                 return;
             }
             lastFocusedCell.innerText = lastFocusedCell.dataset.correct;
             lastFocusedCell.dataset.resolved = 'true';
-            lastFocusedCell.dataset.filledBy = 'revealed';
             lastFocusedCell.parentElement.className = lastFocusedCell.parentElement.className.replace(/cell-default|cell-incorrect/g, '').trim() + ' cell-correct';
 
             manualPenalties += 50;
             lettersRevealedCount++;
             revealTimePenaltySeconds += LETTER_REVEAL_TIME_PENALTY;
-            boardDirty = true;
             updateTimePenaltyDisplay(true);
             recalcScore(true);
             updateProgressDisplay();
             setStatus(`Letter revealed (-50 pts, +${LETTER_REVEAL_TIME_PENALTY}s time penalty).`, 'warning');
-            checkForAutoCompletion();
         }
 
         function revealWord() {
-            if (!isGameActive) { setStatus('This puzzle is already finished. Generate a new one to keep playing.', 'info'); return; }
             if (!lastFocusedCell) { setStatus('Click on a starting cell (with a number) first.', 'warning'); return; }
             let r = parseInt(lastFocusedCell.dataset.row);
             let c = parseInt(lastFocusedCell.dataset.col);
@@ -1745,12 +1523,10 @@
                 if (cell && wrapper) {
                     cell.innerText = cell.dataset.correct;
                     cell.dataset.resolved = 'true';
-                    cell.dataset.filledBy = 'revealed';
                     wrapper.className = wrapper.className.replace(/cell-default|cell-incorrect|highlight-word/g, '').trim() + ' cell-correct highlight-word';
                 }
             }
 
-            boardDirty = true;
             if (allAlreadyResolved) {
                 setStatus(`Word "${wordStr}" restored (Already resolved, no penalty).`, 'info');
             } else {
@@ -1762,11 +1538,9 @@
                 setStatus(`Word "${wordStr}" revealed (-200 pts, +${WORD_REVEAL_TIME_PENALTY}s time penalty).`, 'warning');
             }
             updateProgressDisplay();
-            checkForAutoCompletion();
         }
 
         function checkWord() {
-            if (!isGameActive) { setStatus('This puzzle is already finished. Generate a new one to keep playing.', 'info'); return; }
             if (!lastFocusedCell) { setStatus('Click on a starting cell first.', 'warning'); return; }
             let r = parseInt(lastFocusedCell.dataset.row), c = parseInt(lastFocusedCell.dataset.col);
             let targetWord = currentBoardWords.find(w => w.row === r && w.col === c && w.dir === typingDirection);
@@ -1815,12 +1589,9 @@
             }
             recalcScore(!allAlreadyResolved);
             updateProgressDisplay();
-            boardDirty = true;
-            checkForAutoCompletion();
         }
 
         async function checkAnswers() {
-            if (!isGameActive) { setStatus('This puzzle is already finished. Generate a new one to keep playing.', 'info'); return; }
             const cells = document.querySelectorAll('.crossword-cell');
             let allCorrect = true, hasEmpty = false, anyFilled = false;
             let correctNewCount = 0, incorrectNewCount = 0;
@@ -1853,12 +1624,11 @@
             manualPenalties += penalty;
             recalcScore(penalty > 0);
             updateProgressDisplay();
-            boardDirty = true;
 
             if (allCorrect) {
                 stopTimer();
                 setStatus(`All answers correct in ${formatTime(secondsElapsed)}! Final Score: ${currentScore} pts 🎉`, 'success');
-                await recordGameSession(true, false);
+                if (currentUser) await recordGameSession(true, false);
             } else if (hasEmpty) {
                 setStatus(`Some boxes empty. Keep trying! (-${penalty} pts)`, 'warning');
             } else {
@@ -1867,9 +1637,11 @@
         }
 
         async function recordGameSession(completed, gaveUp) {
+            if (!currentUser) return;
             const topic = document.getElementById('topic-select').value;
             const difficulty = document.getElementById('difficulty-select').value;
-            const sessionData = {
+            await supabaseClient.from('game_sessions').insert({
+                user_id: currentUser.id,
                 topic, difficulty,
                 word_count: currentBoardWords.length,
                 duration_seconds: secondsElapsed,
@@ -1878,35 +1650,19 @@
                 words_revealed: wordsRevealedCount,
                 completed, gave_up: gaveUp,
                 final_score: currentScore
-            };
-            if (currentUser) {
-                await supabaseClient.from('game_sessions').insert({
-                    user_id: currentUser.id,
-                    ...sessionData
-                });
-            } else {
-                recordGuestStatEntry(sessionData);
-            }
+            });
             await discardActiveGame();
         }
 
         async function openStatsModal() {
+            if (!currentUser) return;
             const modal = document.getElementById('stats-modal');
             const content = document.getElementById('stats-content');
-            const titleEl = document.getElementById('stats-modal-title');
             modal.classList.remove('hidden');
             content.textContent = "Calculating stats...";
 
-            let data;
-            if (currentUser) {
-                if (titleEl) titleEl.textContent = '📊 Career Stats';
-                const result = await supabaseClient.from('game_sessions').select('*').eq('user_id', currentUser.id);
-                if (result.error || !result.data) { content.textContent = "Error loading stats."; return; }
-                data = result.data;
-            } else {
-                if (titleEl) titleEl.textContent = "📊 Today's Stats (Guest)";
-                data = getGuestStatsForToday();
-            }
+            const { data, error } = await supabaseClient.from('game_sessions').select('*').eq('user_id', currentUser.id);
+            if (error || !data) { content.textContent = "Error loading stats."; return; }
 
             const totalPlayed = data.length;
             const completed = data.filter(d => d.completed).length;
@@ -1943,18 +1699,13 @@
                     </tr>`;
             }).join('');
 
-            const guestNote = !currentUser
-                ? `<p class="text-xs text-[var(--muted)] italic pt-1">Guest stats reset daily and aren't saved to an account. <a href="#" onclick="closeStatsModal(); openAuthModal(); return false;" class="text-[var(--cyan)] underline">Register</a> to keep your history.</p>`
-                : '';
-
             content.innerHTML = `
                 <p>🧩 Total games played: <span class="text-[var(--text)] font-bold">${totalPlayed}</span></p>
                 <p>✅ Completed: <span class="text-[var(--text)] font-bold">${completed} (${ratio}%)</span></p>
                 <p>⏱️ Total time played: <span class="text-[var(--text)] font-bold">${Math.floor(totalTime / 60)}m ${totalTime % 60}s</span></p>
-                <p>🏆 Total Score${currentUser ? ' (career XP)' : ''}: <span class="text-[var(--text)] font-bold">${totalScoreSum} pts</span></p>
+                <p>🏆 Total Score (career XP): <span class="text-[var(--text)] font-bold">${totalScoreSum} pts</span></p>
                 <p>⭐ Average Score (completed games): <span class="text-[var(--text)] font-bold">${avgScore} pts</span></p>
                 <p>💡 Reveals used: <span class="text-[var(--text)] font-bold">${lettersRevealedTotal} letters, ${wordsRevealedTotal} words</span></p>
-                ${guestNote}
 
                 <div class="pt-2">
                     <p class="text-[var(--cyan)] uppercase text-xs tracking-wider mb-1">By Difficulty</p>
@@ -1977,7 +1728,6 @@
         function closeStatsModal() { document.getElementById('stats-modal').classList.add('hidden'); }
 
         function revealAll() {
-            if (!isGameActive) { setStatus('This puzzle is already finished. Generate a new one to keep playing.', 'info'); return; }
             if (!confirm('Are you sure you want to reveal the entire puzzle?')) return;
 
             // Count words that still have at least one unresolved cell, before we reveal everything —
@@ -1998,7 +1748,6 @@
             cells.forEach(cell => {
                 cell.innerText = cell.dataset.correct;
                 cell.dataset.resolved = 'true';
-                cell.dataset.filledBy = 'revealed';
                 cell.parentElement.className = cell.parentElement.className.replace(/cell-default|cell-correct|cell-incorrect|highlight-word/g, '').trim() + ' cell-correct';
             });
 
@@ -2006,13 +1755,12 @@
             revealTimePenaltySeconds += WORD_REVEAL_TIME_PENALTY * unresolvedWords;
             updateTimePenaltyDisplay(true);
             updateProgressDisplay();
-            boardDirty = true;
 
             stopTimer();
             currentScore = 0;
             updateScoreDisplay(true);
             setStatus(`Puzzle revealed (${unresolvedWords} word${unresolvedWords === 1 ? '' : 's'} force-completed, +${WORD_REVEAL_TIME_PENALTY * unresolvedWords}s time penalty).`, 'error');
-            recordGameSession(false, true);
+            if (currentUser) recordGameSession(false, true);
         }
 
         function checkAndAutoSwitchDirection(r, c) {
@@ -2048,9 +1796,7 @@
             else if (e.key === 'ArrowUp') { nextR--; typingDirection = 'V'; updateDirectionIndicator(); }
             else if (e.key === 'Backspace') {
                 e.target.innerText = '';
-                e.target.dataset.filledBy = '';
                 parent.className = parent.className.replace(/cell-correct|cell-incorrect|cell-default/g, '').trim() + ' cell-default';
-                boardDirty = true;
                 if (typingDirection === 'H') nextC--; else nextR--;
                 focusCell(nextR, nextC);
                 e.preventDefault(); return;
@@ -2058,16 +1804,13 @@
             else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
                 const typedChar = e.key.toUpperCase();
                 e.target.innerText = typedChar;
-                e.target.dataset.filledBy = 'typed';
                 parent.className = parent.className.replace(/cell-correct|cell-incorrect|cell-default/g, '').trim();
                 if (e.target.dataset.resolved === 'true' && typedChar === e.target.dataset.correct) {
                     parent.classList.add('cell-correct');
                 } else {
                     parent.classList.add('cell-default');
                 }
-                boardDirty = true;
                 checkAndAutoSwitchDirection(r, c);
-                checkForAutoCompletion();
                 if (typingDirection === 'H') nextC++; else nextR++;
                 setTimeout(() => focusCell(nextR, nextC), 10);
                 e.preventDefault(); return;
@@ -2075,36 +1818,6 @@
 
             focusCell(nextR, nextC);
             e.preventDefault();
-        }
-
-        // Fallback for mobile IME keyboards (notably Samsung/Android with predictive text)
-        // that don't reliably report a usable key on keydown — that branch above never
-        // fires there, so the browser's own contenteditable insertion runs uncontrolled and
-        // focus never advances, letting every subsequent keystroke stack into the same cell.
-        // On a keyboard where keydown DOES work, preventDefault() there already stops the
-        // browser's own insertion, so this input event simply never fires — safe to add
-        // without risking the working desktop/standard-keyboard path.
-        function handleCellInput(target) {
-            const val = target.textContent.replace(/[^a-zA-Z]/g, '');
-            if (val.length === 0) return; // deletion or non-letter input — nothing to normalize
-            const lastChar = val.slice(-1).toUpperCase();
-            const r = parseInt(target.dataset.row);
-            const c = parseInt(target.dataset.col);
-            target.textContent = lastChar;
-            target.dataset.filledBy = 'typed';
-            const parent = target.parentElement;
-            parent.className = parent.className.replace(/cell-correct|cell-incorrect|cell-default/g, '').trim();
-            if (target.dataset.resolved === 'true' && lastChar === target.dataset.correct) {
-                parent.classList.add('cell-correct');
-            } else {
-                parent.classList.add('cell-default');
-            }
-            boardDirty = true;
-            checkAndAutoSwitchDirection(r, c);
-            checkForAutoCompletion();
-            let nextR = r, nextC = c;
-            if (typingDirection === 'H') nextC++; else nextR++;
-            setTimeout(() => focusCell(nextR, nextC), 10);
         }
 
         function focusCell(r, c) {
@@ -2119,11 +1832,9 @@
                 let cell = document.getElementById(`cell-${r}-${c}`);
                 if (cell) {
                     cell.innerText = '';
-                    cell.dataset.filledBy = '';
                     cell.parentElement.className = cell.parentElement.className.replace(/cell-correct|cell-incorrect|cell-default/g, '').trim() + ' cell-default';
                 }
             }
-            boardDirty = true;
         }
 
         function clearWordWithConfirm(startRow, startCol, dir, length) {
@@ -2174,32 +1885,6 @@
             });
             currentHighlight = [];
         }
-
-        // Fixes: refreshing/closing the browser between periodic autosave ticks could lose
-        // progress. visibilitychange fires reliably (including on mobile, unlike beforeunload)
-        // the moment the tab is hidden — whether from a refresh, a tab switch, or closing —
-        // so we force an immediate save right then instead of waiting for the next 10s tick.
-        function forceSaveIfActive() {
-            if (!isGameActive && !isPaused) return;
-            if (currentUser) {
-                saveActiveGameToDB();
-            } else {
-                saveActiveGameToLocalStorage();
-            }
-            boardDirty = false;
-        }
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') {
-                forceSaveIfActive();
-            }
-        });
-
-        // Best-effort secondary trigger — not all browsers guarantee async work completes
-        // here, but it costs nothing to also try (localStorage writes for guests are
-        // synchronous and always land; the Supabase write for logged-in users is a bonus
-        // attempt on top of the visibilitychange save, which already covers the same moment).
-        window.addEventListener('beforeunload', forceSaveIfActive);
 
         initAuth();
     </script>
