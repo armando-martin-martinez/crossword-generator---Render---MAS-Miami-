@@ -544,15 +544,14 @@
             </div>
         </div>
 
-        <!-- Status & Game HUD Bar -->
+        <!-- Give Up + Game HUD Row -->
         <div class="w-full max-w-3xl flex flex-wrap items-stretch justify-between gap-3 mb-4">
             <div id="give-up-wrap" class="hidden flex items-stretch">
                 <button onclick="revealAll()" class="btn-secondary btn-danger h-full flex items-center">
                     🏳️ Give Up / Reveal All
                 </button>
             </div>
-            <div id="status" class="status-banner status-info flex-1" role="status" aria-live="polite">Welcome! Select a topic and hit generate.</div>
-            <div id="game-hud" class="hud-card hidden">
+            <div id="game-hud" class="hud-card hidden ml-auto">
                 <div class="hud-stat">
                     <span class="hud-label">Time</span>
                     <span id="timer-display" class="hud-value hud-value-time">00:00</span>
@@ -580,6 +579,10 @@
                 </div>
             </div>
         </div>
+
+        <!-- Status Banner: standalone now, so a long message (which can wrap to multiple lines)
+             only grows this element — it no longer stretches Give Up/HUD to match its height. -->
+        <div id="status" class="status-banner status-info w-full max-w-3xl mb-4" role="status" aria-live="polite">Welcome! Select a topic and hit generate.</div>
 
         <!-- Active Clue Bar: shows the clue for whatever word the focused cell belongs to,
              in the currently active typing direction. Crossword-only — hidden/shown together
@@ -944,7 +947,7 @@
         function setStatus(text, type) {
             const status = document.getElementById('status');
             status.textContent = text;
-            status.className = `status-banner status-${type} flex-1`;
+            status.className = `status-banner status-${type} w-full max-w-3xl mb-4`;
         }
 
         // Groups Pause/Check/Reveal, the relocated Give-Up button, the Active Clue bar, and the
