@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
 
     <title>Interactive Crossword — Free Online Puzzle Generator</title>
     <meta name="description" content="Play free crossword puzzles generated instantly across Anatomy, Science, History, Math and more. Pick a topic and difficulty, then solve online — no download needed.">
@@ -2150,6 +2151,15 @@
         // browser's own insertion, so this input event simply never fires — safe to add
         // without risking the working desktop/standard-keyboard path.
         function handleCellInput(target) {
+            if (target.textContent.includes(' ')) {
+                // Android IME sent the spacebar through as literal text instead of a keydown —
+                // strip it back out (restoring any letter that was already there) and treat it
+                // as the direction-toggle shortcut, same as the desktop keydown path.
+                target.textContent = target.textContent.replace(/ /g, '');
+                typingDirection = (typingDirection === 'H') ? 'V' : 'H';
+                updateDirectionIndicator();
+                return;
+            }
             const val = target.textContent.replace(/[^a-zA-Z]/g, '');
             if (val.length === 0) return; // deletion or non-letter input — nothing to normalize
             const lastChar = val.slice(-1).toUpperCase();
