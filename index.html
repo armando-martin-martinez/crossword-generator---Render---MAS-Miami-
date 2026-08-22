@@ -2151,11 +2151,12 @@
         // browser's own insertion, so this input event simply never fires — safe to add
         // without risking the working desktop/standard-keyboard path.
         function handleCellInput(target) {
-            if (target.textContent.includes(' ')) {
+            if (/\s/.test(target.textContent)) {
                 // Android IME sent the spacebar through as literal text instead of a keydown —
-                // strip it back out (restoring any letter that was already there) and treat it
-                // as the direction-toggle shortcut, same as the desktop keydown path.
-                target.textContent = target.textContent.replace(/ /g, '');
+                // some keyboards insert a regular space, others a non-breaking space (\u00A0),
+                // so \s catches either. Strip it back out (restoring any letter that was already
+                // there) and treat it as the direction-toggle shortcut, same as desktop keydown.
+                target.textContent = target.textContent.replace(/\s/g, '');
                 typingDirection = (typingDirection === 'H') ? 'V' : 'H';
                 updateDirectionIndicator();
                 return;
