@@ -398,11 +398,11 @@
             transition: all 0.15s ease;
         }
         
-        .cell-default { background: var(--paper); color: var(--paper-ink); border-color: rgba(17, 20, 28, 0.12); }
-        .cell-correct { background: #C4F4D5; color: #0A3C20; border-color: rgba(10, 60, 32, 0.2); }
-        .cell-incorrect { background: #FAD1D1; color: #5C1414; border-color: rgba(92, 20, 20, 0.2); }
+        .cell-default { background: var(--paper); color: var(--paper-ink); border-color: rgba(17, 20, 28, 0.12); color-scheme: only light; }
+        .cell-correct { background: #C4F4D5; color: #0A3C20; border-color: rgba(10, 60, 32, 0.2); color-scheme: only light; }
+        .cell-incorrect { background: #FAD1D1; color: #5C1414; border-color: rgba(92, 20, 20, 0.2); color-scheme: only light; }
         
-        .highlight-word { background: #FDF5D3 !important; box-shadow: inset 0 0 0 2px var(--amber); }
+        .highlight-word { background: #FDF5D3 !important; box-shadow: inset 0 0 0 2px var(--amber); color-scheme: only light; }
         .cell-correct.highlight-word { background: #A7EDB8 !important; box-shadow: inset 0 0 0 2px var(--amber); }
         .cell-incorrect.highlight-word { background: #F6BDBD !important; box-shadow: inset 0 0 0 2px var(--amber); }
         
@@ -2081,6 +2081,16 @@
             recordGameSession(false, true);
         }
 
+        // True only if a word is actually registered at (r,c) running in `dir` —
+        // used to stop the space-toggle from switching into a direction that
+        // doesn't exist at the current cell (which was corrupting focus jumps).
+        function cellHasWordInDirection(r, c, dir) {
+            return currentBoardWords.some(w => w.dir === dir &&
+                (dir === 'H'
+                    ? (r === w.row && c >= w.col && c < w.col + w.word.length)
+                    : (c === w.col && r >= w.row && r < w.row + w.word.length)));
+        }
+
         function checkAndAutoSwitchDirection(r, c) {
             let nextR = r, nextC = c;
             if (typingDirection === 'H') nextC++; else nextR++;
@@ -2102,8 +2112,11 @@
             const parent = e.target.parentElement;
 
             if (e.key === ' ') {
-                typingDirection = (typingDirection === 'H') ? 'V' : 'H';
-                updateDirectionIndicator();
+                const candidateDir = (typingDirection === 'H') ? 'V' : 'H';
+                if (cellHasWordInDirection(r, c, candidateDir)) {
+                    typingDirection = candidateDir;
+                    updateDirectionIndicator();
+                }
                 e.preventDefault();
                 return;
             }
@@ -2151,21 +2164,24 @@
         // browser's own insertion, so this input event simply never fires — safe to add
         // without risking the working desktop/standard-keyboard path.
         function handleCellInput(target) {
+            const r = parseInt(target.dataset.row);
+            const c = parseInt(target.dataset.col);
             if (/\s/.test(target.textContent)) {
                 // Android IME sent the spacebar through as literal text instead of a keydown —
                 // some keyboards insert a regular space, others a non-breaking space (\u00A0),
                 // so \s catches either. Strip it back out (restoring any letter that was already
                 // there) and treat it as the direction-toggle shortcut, same as desktop keydown.
                 target.textContent = target.textContent.replace(/\s/g, '');
-                typingDirection = (typingDirection === 'H') ? 'V' : 'H';
-                updateDirectionIndicator();
+                const candidateDir = (typingDirection === 'H') ? 'V' : 'H';
+                if (cellHasWordInDirection(r, c, candidateDir)) {
+                    typingDirection = candidateDir;
+                    updateDirectionIndicator();
+                }
                 return;
             }
             const val = target.textContent.replace(/[^a-zA-Z]/g, '');
             if (val.length === 0) return; // deletion or non-letter input — nothing to normalize
             const lastChar = val.slice(-1).toUpperCase();
-            const r = parseInt(target.dataset.row);
-            const c = parseInt(target.dataset.col);
             target.textContent = lastChar;
             target.dataset.filledBy = 'typed';
             const parent = target.parentElement;
