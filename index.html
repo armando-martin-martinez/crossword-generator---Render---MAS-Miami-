@@ -409,6 +409,25 @@
         .crossword-cell:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--cyan); background: rgba(56, 210, 212, 0.08); }
         .cell-number { color: rgba(17, 20, 28, 0.45); }
 
+        /* Belt-and-suspenders against Chromium-based mobile browsers (Chrome, Samsung
+           Internet) that may still re-color these elements despite color-scheme: only
+           light above. Re-asserting the exact same colors inside a prefers-color-scheme:
+           dark query both (a) wins if the browser evaluates the query normally, and (b)
+           is one of the documented signals that makes Chrome's Auto Dark Theme detector
+           back off, since it treats real dark-mode handling as "already supported".
+           This cannot override a true OS-level display filter, which recolors pixels
+           after the browser has already rendered them — that layer is outside any
+           page's reach by design. */
+        @media (prefers-color-scheme: dark) {
+            .cell-default { background: var(--paper) !important; color: var(--paper-ink) !important; }
+            .cell-correct { background: #C4F4D5 !important; color: #0A3C20 !important; }
+            .cell-incorrect { background: #FAD1D1 !important; color: #5C1414 !important; }
+            .highlight-word { background: #FDF5D3 !important; }
+            .cell-correct.highlight-word { background: #A7EDB8 !important; }
+            .cell-incorrect.highlight-word { background: #F6BDBD !important; }
+            .cell-number { color: rgba(17, 20, 28, 0.45) !important; }
+        }
+
         .clues-panel {
             background: var(--panel);
             border: 1px solid var(--border);
