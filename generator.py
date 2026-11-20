@@ -163,7 +163,16 @@ def generate_crossword(topic='Science', difficulty='medium', exclude_ids=None):
         'hard': {'min': 35, 'max': 40, 'grid_size': 30, 'max_nodes': 8000}
     }
     
+    # Mezcla objetivo de palabras por words.difficulty_level (Opción B, soft-preference).
+    # No filtra: solo inclina la piscina de 100 palabras hacia el nivel elegido.
+    mezcla_palabras = {
+        'easy':   {'easy': 0.60, 'medium': 0.30, 'hard': 0.10},
+        'medium': {'easy': 0.25, 'medium': 0.50, 'hard': 0.25},
+        'hard':   {'easy': 0.10, 'medium': 0.30, 'hard': 0.60}
+    }
+
     ajustes = config_dificultad.get(difficulty.lower(), config_dificultad['medium'])
+    pesos = mezcla_palabras.get(difficulty.lower(), mezcla_palabras['medium'])
     min_palabras = ajustes['min']
     max_palabras = ajustes['max']
     size = ajustes['grid_size']
@@ -185,7 +194,8 @@ def generate_crossword(topic='Science', difficulty='medium', exclude_ids=None):
             print(f"🔄 Motor intentando inyectar datos (Piscina: 100 palabras) - Intento {attempt + 1}...")
             
             query_base = """
-                SELECT DISTINCT ON (w.id) w.id AS word_id, w.word, c.clue, def.definition
+                SELECT DISTINCT ON (w.id) w.id AS word_id, w.word, c.clue, def.definition,
+                       COALESCE(w.difficulty_level, 'medium') AS lvl
                 FROM words w
                 JOIN clues c ON c.word_id = w.id
                 JOIN word_categories wc ON wc.word_id = w.id
@@ -201,7 +211,21 @@ def generate_crossword(topic='Science', difficulty='medium', exclude_ids=None):
                 query_base += " AND w.id <> ALL(%s::int[])"
                 params.append(current_exclude_ids)
                 
-            query = f"SELECT word, clue, definition, word_id FROM ({query_base} ORDER BY w.id, RANDOM()) sub ORDER BY RANDOM() LIMIT 100;"
+            # Muestreo aleatorio ponderado (Efraimidis-Spirakis): clave = -ln(u) / peso, se toman las 100 menores.
+            # peso = proporción objetivo del nivel / cantidad de palabras de ese nivel en la piscina,
+            # para que la mezcla esperada sea la objetivo sin importar cómo esté repartido el tema.
+            # Si un nivel no alcanza, el resto se completa con los otros niveles (nunca se queda sin palabras).
+            query = f"""
+                SELECT word, clue, definition, word_id FROM (
+                    SELECT sub.*, COUNT(*) OVER (PARTITION BY sub.lvl) AS n_lvl
+                    FROM ({query_base} ORDER BY w.id, RANDOM()) sub
+                ) s
+                ORDER BY -LN(1.0 - RANDOM()) / (
+                    (CASE s.lvl WHEN 'easy' THEN %s WHEN 'hard' THEN %s ELSE %s END)::float8 / s.n_lvl
+                )
+                LIMIT 100;
+            """
+            params.extend([pesos['easy'], pesos['hard'], pesos['medium']])
             
             cur.execute(query, params)
             db_data = cur.fetchall()
