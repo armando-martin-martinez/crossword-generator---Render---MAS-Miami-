@@ -1,7 +1,9 @@
 import os
+import time
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import generator
+import analytics
 
 app = Flask(__name__)
 
@@ -28,13 +30,28 @@ def generate_api():
             pass
             
     print(f"🌐 Request: {target_topic} - {target_difficulty} | Excluyendo {len(exclude_ids)} palabras.")
-    
+
+    t0 = time.monotonic()
     resultado = generator.generate_crossword(
-        topic=target_topic, 
+        topic=target_topic,
         difficulty=target_difficulty,
         exclude_ids=exclude_ids
     )
-    
+
+    # Solo se registra si el frontend manda su anon_id (excluye bots y llamadas sueltas)
+    anon_id = analytics.clean_anon_id(request.args.get('aid'))
+    if anon_id:
+        analytics.log_event(
+            'generate',
+            anon_id=anon_id,
+            logged_in=request.args.get('li') == '1',
+            topic=target_topic,
+            difficulty=target_difficulty,
+            success=bool(resultado),
+            words_placed=resultado['count'] if resultado else 0,
+            duration_ms=int((time.monotonic() - t0) * 1000)
+        )
+
     if resultado:
         return jsonify({
             "success": True,
@@ -51,6 +68,16 @@ def generate_api():
 @app.route('/api/available', methods=['GET'])
 def available_api():
     availability = generator.get_availability()
+    # La página llama a este endpoint una vez al cargar: cuenta como visita.
+    # El keep-alive (cron) no manda 'aid', así que no se registra.
+    anon_id = analytics.clean_anon_id(request.args.get('aid'))
+    if anon_id:
+        analytics.log_event(
+            'visit',
+            anon_id=anon_id,
+            logged_in=request.args.get('li') == '1',
+            ref_host=analytics.clean_host(request.args.get('ref'))
+        )
     if availability is not None:
         return jsonify({"success": True, "availability": availability}), 200
     else:

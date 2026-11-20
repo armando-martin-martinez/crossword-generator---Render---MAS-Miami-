@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark">
 
-    <title>Interactive Crossword — Free Online Puzzle Generator</title>
-    <meta name="description" content="Play free crossword puzzles generated instantly across Anatomy, Science, History, Math and more. Pick a topic and difficulty, then solve online — no download needed.">
+    <title>Free Online Crossword Puzzles — No Ads, Unlimited | MAS-Miami</title>
+    <meta name="description" content="Free online crosswords with no ads. Generate unlimited puzzles by topic — Anatomy, Science, History, Math and more — in easy, medium or hard. No sign-up needed.">
     <link rel="canonical" href="https://mas-miami.com/">
     <meta name="robots" content="index, follow">
 
     <!-- Open Graph (Facebook, WhatsApp, iMessage, LinkedIn, etc.) -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://mas-miami.com/">
-    <meta property="og:title" content="Interactive Crossword — Free Online Puzzle Generator">
-    <meta property="og:description" content="Play free crossword puzzles generated instantly across Anatomy, Science, History, Math and more. Pick a topic and difficulty, then solve online — no download needed.">
+    <meta property="og:title" content="Free Online Crossword Puzzles — No Ads, Unlimited | MAS-Miami">
+    <meta property="og:description" content="Free online crosswords with no ads. Generate unlimited puzzles by topic — Anatomy, Science, History, Math and more — in easy, medium or hard. No sign-up needed.">
     <meta property="og:image" content="https://mas-miami.com/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -23,8 +23,8 @@
 
     <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Interactive Crossword — Free Online Puzzle Generator">
-    <meta name="twitter:description" content="Play free crossword puzzles generated instantly across Anatomy, Science, History, Math and more. Pick a topic and difficulty, then solve online.">
+    <meta name="twitter:title" content="Free Online Crossword Puzzles — No Ads, Unlimited | MAS-Miami">
+    <meta name="twitter:description" content="Free online crosswords with no ads. Unlimited puzzles by topic — Anatomy, Science, History, Math and more.">
     <meta name="twitter:image" content="https://mas-miami.com/og-image.png">
 
     <!-- Structured data: tells Google what this actually is, in a format it can trust -->
@@ -35,7 +35,7 @@
       "name": "Interactive Crossword",
       "alternateName": "MAS-Miami Crossword",
       "url": "https://mas-miami.com/",
-      "description": "Free online crossword puzzle generator with instantly generated puzzles across multiple topics and difficulty levels.",
+      "description": "Free, ad-free online crossword puzzle generator: unlimited puzzles across multiple topics in easy, medium and hard, playable in the browser with no sign-up.",
       "applicationCategory": "GameApplication",
       "operatingSystem": "Any (Web Browser)",
       "isAccessibleForFree": true,
@@ -758,6 +758,33 @@
                 ? 'https://mas-miami-api.onrender.com'
                 : 'https://api.mas-miami.com');
 
+        // ANONYMOUS USAGE ID: random UUID per browser, stored only in localStorage.
+        // Sent to the API so play_events can count unique players. No personal data.
+        const ANON_ID = (() => {
+            try {
+                let id = localStorage.getItem('mm_anon_id');
+                if (!id) {
+                    id = (window.crypto && crypto.randomUUID)
+                        ? crypto.randomUUID()
+                        : 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+                    localStorage.setItem('mm_anon_id', id);
+                }
+                return id;
+            } catch (e) {
+                return null; // storage blocked: just don't track
+            }
+        })();
+
+        // Where the visitor came from (hostname only, and only if external)
+        const REF_HOST = (() => {
+            try {
+                const host = document.referrer ? new URL(document.referrer).hostname : '';
+                return host && host !== window.location.hostname ? host : '';
+            } catch (e) {
+                return '';
+            }
+        })();
+
         let currentUser = null;
         let authMode = 'login'; // 'login', 'register', 'forgot'
 
@@ -1396,7 +1423,14 @@
 
         async function loadAvailability() {
             try {
-                const response = await fetch(`${API_BASE}/api/available`);
+                const visitParams = new URLSearchParams();
+                if (ANON_ID) {
+                    visitParams.set('aid', ANON_ID);
+                    visitParams.set('li', currentUser ? '1' : '0');
+                    if (REF_HOST) visitParams.set('ref', REF_HOST);
+                }
+                const visitQuery = visitParams.toString();
+                const response = await fetch(`${API_BASE}/api/available${visitQuery ? '?' + visitQuery : ''}`);
                 const data = await response.json();
                 availabilityData = data.success ? data.availability : {};
                 
@@ -1498,6 +1532,10 @@
                     difficulty: selectedDifficulty,
                     exclude: excludeStr
                 });
+                if (ANON_ID) {
+                    params.set('aid', ANON_ID);
+                    params.set('li', currentUser ? '1' : '0');
+                }
                 const response = await fetch(`${API_BASE}/api/generate?${params.toString()}`);
                 const data = await response.json();
 
